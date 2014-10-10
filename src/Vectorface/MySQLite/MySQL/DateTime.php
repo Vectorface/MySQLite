@@ -33,8 +33,8 @@ trait DateTime
         // - 1413108827 / 86400 = -719162.79166667, python similarly says -719162.7916666666
         // - ceil bumps it up 1 to -719162
         // - 719527 + (-719162), python agrees
-        // - So why is Travis giving me 364?!?
-        return  719527 + intval(ceil(strtotime($date) / (60 * 60 * 24)));
+        // - So why is Travis giving me 364?!? Their PHP is configured for a different timezone (I think)!
+        return intval(719528 + ((strtotime($date) - date("Z")) / (60 * 60 * 24)));
     }
 
     /**
