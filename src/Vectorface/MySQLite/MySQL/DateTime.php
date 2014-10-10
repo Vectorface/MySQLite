@@ -27,6 +27,13 @@ trait DateTime
      */
     public static function mysql_to_days($date)
     {
+        // Why does this work on my Debian machine with PHP 5.6, and not on Travis?
+        // - strtotime("0000-12-31") yields -62135665200
+        // - 60 * 60 * 24 is 86400 (seconds)
+        // - 1413108827 / 86400 = -719162.79166667, python similarly says -719162.7916666666
+        // - ceil bumps it up 1 to -719162
+        // - 719527 + (-719162), python agrees
+        // - So why is Travis giving me 364?!?
         return  719527 + intval(ceil(strtotime($date) / (60 * 60 * 24)));
     }
 
