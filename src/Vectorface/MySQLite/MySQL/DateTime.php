@@ -27,7 +27,7 @@ trait DateTime
      */
     public static function mysql_to_days($date)
     {
-        return  719527 + ceil(strtotime($date) / (60 * 60 * 24));
+        return  719527 + intval(ceil(strtotime($date) / (60 * 60 * 24)));
     }
 
     /**
