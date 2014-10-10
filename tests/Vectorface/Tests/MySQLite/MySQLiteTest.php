@@ -54,7 +54,7 @@ class MySQLiteTest extends PHPUnit_Framework_TestCase
      */
     public function testCreateFunctions()
     {
-        $fakepdo = $this->getMockBuilder('PDO')->disableOriginalConstructor()->getMock();
+        $fakepdo = $this->getMockBuilder('\Vectorface\Tests\MySQLite\Util\MockablePDO')->disableOriginalConstructor()->getMock();
         $fakepdo->expects($this->any())
             ->method('getAttribute')
             ->with($this->equalTo(PDO::ATTR_DRIVER_NAME))
