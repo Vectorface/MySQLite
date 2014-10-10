@@ -54,17 +54,20 @@ class MySQLiteTest extends PHPUnit_Framework_TestCase
      */
     public function testCreateFunctions()
     {
-        $fakepdo = $this->getMockBuilder('\Vectorface\Tests\MySQLite\Util\MockablePDO')->disableOriginalConstructor()->getMock();
-        $fakepdo->expects($this->any())
-            ->method('getAttribute')
-            ->with($this->equalTo(PDO::ATTR_DRIVER_NAME))
-            ->will($this->returnValue('mysql'));
+        /* PHPUnit and PHP<5.6 seem to have a problem mocking PDO, so don't run this test there. */
+        if (PHP_VERSION_ID >= 50600) {
+            $fakepdo = $this->getMockBuilder('\Vectorface\Tests\MySQLite\Util\MockablePDO')->disableOriginalConstructor()->getMock();
+            $fakepdo->expects($this->any())
+                ->method('getAttribute')
+                ->with($this->equalTo(PDO::ATTR_DRIVER_NAME))
+                ->will($this->returnValue('mysql'));
 
-        try {
-            MySQLite::createFunctions($fakepdo);
-            $this->fail("Attempt to create functions with a driver other than SQLite should fail.");
-        } catch (InvalidArgumentException $e) {
-            /* Expected */
+            try {
+                MySQLite::createFunctions($fakepdo);
+                $this->fail("Attempt to create functions with a driver other than SQLite should fail.");
+            } catch (InvalidArgumentException $e) {
+                /* Expected */
+            }
         }
 
         $pdo = new PDO("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
