@@ -75,7 +75,7 @@ class MySQLite
      *
      * @return int[] An associative array composed of function names mapping to accepted parameter counts.
      */
-    private static function getPublicMethodData()
+    protected static function getPublicMethodData()
     {
         $data = [];
 
