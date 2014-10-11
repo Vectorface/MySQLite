@@ -1,12 +1,14 @@
 MySQLite
 ========
+[![Build Status](https://travis-ci.org/Vectorface/MySQLite.svg?branch=master)](https://travis-ci.org/Vectorface/MySQLite)
+[![Code Coverage](https://scrutinizer-ci.com/g/Vectorface/MySQLite/badges/coverage.png?b=master)](https://scrutinizer-ci.com/g/Vectorface/MySQLite/?branch=master)
 
-MySQLite provides an easy way to add MySQL functions into SQLite. This can be useful for testing and development where an SQLite database may be more practical than a real MySQL database.
+MySQLite is an easy way to add MySQL functions to SQLite accessed through PDO. This can be useful for testing and development where an SQLite database may be more practical than a real MySQL database.
 
 Usage
 -----
 
-Using MySQLite is means to be a one-step affair with no configuration required:
+Using MySQLite is meant to be a one-step affair, with no configuration required:
 
 ```php
 use Vectorface\MySQLite\MySQLite;
