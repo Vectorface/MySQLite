@@ -74,8 +74,23 @@ class MySQLiteTest extends PHPUnit_Framework_TestCase
         }
 
         $this->assertTrue($pdo === MySQLite::createFunctions($pdo));
-
         $this->assertEquals(3, $pdo->query("SELECT BIT_OR(1, 2)")->fetch(PDO::FETCH_COLUMN));
+    }
+
+    /**
+     * Test that createFunctions is able to create only a limited subset of supported functions.
+     */
+    public function testSelectiveCreateFunctions()
+    {
+        $pdo = new PDO("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $this->assertTrue($pdo === MySQLite::createFunctions($pdo, ['bit_or']));
+        $this->assertEquals(3, $pdo->query("SELECT BIT_OR(1, 2)")->fetch(PDO::FETCH_COLUMN));
+        try {
+            $pdo->query("SELECT UNIX_TIMESTAMP()");
+            $this->fail("UNIX_TIMESTAMP function is expected not to have been created.");
+        } catch (PDOException $e) {
+            /* Expected */
+        }
     }
 
     /**
