@@ -101,4 +101,20 @@ class MySQLiteTest extends PHPUnit_Framework_TestCase
         $this->assertTrue(in_array("bit_or", MySQLite::getFunctionList()));
         $this->assertTrue(in_array("unix_timestamp", MySQLite::getFunctionList()));
     }
+
+    /**
+     * Test the concat function
+     */
+    public function testConcat()
+    {
+        $expected = 'test1 test2 test4';
+        $test = MySQLite::mysql_concat("test1", " ", "test2", " ", "test4");
+        $this->assertEquals($expected,$test);
+
+        $pdo = new PDO("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        MySQLite::createFunctions($pdo);
+        $result = $pdo->query('SELECT CONCAT("test1"," ","test2"," " ,"test4")')->fetch(PDO::FETCH_COLUMN);
+        $this->assertEquals($expected,$result);
+    }
+
 }

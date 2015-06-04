@@ -9,4 +9,17 @@ namespace Vectorface\MySQLite\MySQL;
  */
 trait String
 {
+
+     /**
+     * Concat - Return a concatinated string of all function arguments provided
+     * @return string $str concatinated string
+     */
+    public static function mysql_concat()
+    {
+        $str = '';
+        foreach(func_get_args() as $arg) {
+            $str .= $arg;
+        }
+        return $str;
+    }
 }
