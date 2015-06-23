@@ -132,18 +132,18 @@ class MySQLiteTest extends PHPUnit_Framework_TestCase
         $pdo->exec($sql);
 
         $stmt = $pdo->prepare("INSERT INTO testing (id,temp) VALUES (:id, :value)");
-        $stmt->bindParam(':id', $id);
-        $stmt->bindParam(':value', $value);
 
         for($x=0; $x<=10; $x++) {
             $id = $x;
             $value = 'test'.$x;
+            $stmt->bindParam(':id', $id);
+            $stmt->bindParam(':value', $value);
             $stmt->execute();
         }
 
         $results = [];
         for($x=0; $x<20; $x++) {
-            $results[] = array_pop($pdo->query('SELECT * FROM testing order by RAND() limit 1')->fetchAll(PDO::FETCH_COLUMN));
+            $results[] = $pdo->query('SELECT * FROM testing order by RAND() limit 1')->fetch(PDO::FETCH_COLUMN);
         }
 
         $result1 = array_slice($results,0,10);
