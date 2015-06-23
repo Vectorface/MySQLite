@@ -117,4 +117,38 @@ class MySQLiteTest extends PHPUnit_Framework_TestCase
         $this->assertEquals($expected,$result);
     }
 
+     /**
+     * Test the rand function
+     */
+    public function testRand()
+    {
+        $pdo = new PDO("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        MySQLite::createFunctions($pdo);
+
+        $pdo->setAttribute( PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION );
+        $sql ="CREATE table testing(
+        id INT( 11 ) PRIMARY KEY  NOT NULL,
+        temp VARCHAR( 50 ) NOT NULL);" ;
+        $pdo->exec($sql);
+
+        $stmt = $pdo->prepare("INSERT INTO testing (id,temp) VALUES (:id, :value)");
+        $stmt->bindParam(':id', $id);
+        $stmt->bindParam(':value', $value);
+
+        for($x=0; $x<=10; $x++) {
+            $id = $x;
+            $value = 'test'.$x;
+            $stmt->execute();
+        }
+
+        $results = [];
+        for($x=0; $x<20; $x++) {
+            $results[] = array_pop($pdo->query('SELECT * FROM testing order by RAND() limit 1')->fetchAll(PDO::FETCH_COLUMN));
+        }
+
+        $result1 = array_slice($results,0,10);
+        $result2 = array_slice($results,10,10);
+        $this->assertNotEquals($result1,$result2);
+    }
+
 }
