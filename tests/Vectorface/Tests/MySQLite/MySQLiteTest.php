@@ -109,12 +109,12 @@ class MySQLiteTest extends PHPUnit_Framework_TestCase
     {
         $expected = 'test1 test2 test4';
         $test = MySQLite::mysql_concat("test1", " ", "test2", " ", "test4");
-        $this->assertEquals($expected,$test);
+        $this->assertEquals($expected, $test);
 
         $pdo = new PDO("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         MySQLite::createFunctions($pdo);
         $result = $pdo->query('SELECT CONCAT("test1"," ","test2"," " ,"test4")')->fetch(PDO::FETCH_COLUMN);
-        $this->assertEquals($expected,$result);
+        $this->assertEquals($expected, $result);
     }
 
      /**
@@ -125,30 +125,20 @@ class MySQLiteTest extends PHPUnit_Framework_TestCase
         $pdo = new PDO("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         MySQLite::createFunctions($pdo);
 
-        $pdo->setAttribute( PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION );
-        $sql ="CREATE table testing(
-        id INT( 11 ) PRIMARY KEY  NOT NULL,
-        temp VARCHAR( 50 ) NOT NULL);" ;
-        $pdo->exec($sql);
-
-        $stmt = $pdo->prepare("INSERT INTO testing (id,temp) VALUES (:id, :value)");
-
-        for($x=0; $x<=10; $x++) {
-            $id = $x;
-            $value = 'test'.$x;
-            $stmt->bindParam(':id', $id);
-            $stmt->bindParam(':value', $value);
-            $stmt->execute();
+        $pdo->exec("CREATE TABLE testing(id INT PRIMARY KEY NOT NULL)");
+        $stmt = $pdo->prepare("INSERT INTO testing (id) VALUES (?)");
+        for ($x = 0; $x <= 10; $x++) {
+            $stmt->execute([$x]);
         }
 
         $results = [];
-        for($x=0; $x<20; $x++) {
-            $results[] = $pdo->query('SELECT * FROM testing order by RAND() limit 1')->fetch(PDO::FETCH_COLUMN);
+        for ($x = 0; $x < 20; $x++) {
+            $results[] = $pdo->query('SELECT id FROM testing ORDER BY RAND() LIMIT 1')->fetch(PDO::FETCH_COLUMN);
         }
 
-        $result1 = array_slice($results,0,10);
-        $result2 = array_slice($results,10,10);
-        $this->assertNotEquals($result1,$result2);
+        $this->assertNotEquals(
+            array_slice($results, 0, 10),
+            array_slice($results, 10, 10)
+        );
     }
-
 }
