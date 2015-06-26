@@ -15,7 +15,7 @@ use Vectorface\Tests\MySQLite\Util\FakePDO;
 class MySQLiteTest extends PHPUnit_Framework_TestCase
 {
     /**
-     * Test the various compatibility functions.
+     * Test miscellaneous compatibility functions.
      */
     public function testCompatibilityFunctions()
     {
@@ -31,7 +31,16 @@ class MySQLiteTest extends PHPUnit_Framework_TestCase
             /* Expected */
         }
 
-        /* Date/Time functions */
+        /* Flow control functions */
+        $this->assertEquals("foo", MySQLite::mysql_if(true, "foo", "bar"));
+        $this->assertEquals("bar", MySQLite::mysql_if(false, "foo", "bar"));
+
+        /* Numeric functions */
+        $this->assertEquals(10, MySQLite::mysql_sqrt(100));
+    }
+
+    public function testDateTimeFunctions()
+    {
         $this->assertEquals(date("Y-m-d H:i:s"), MySQLite::mysql_now());
         $this->assertEquals(365, MySQLite::mysql_to_days("0000-12-31"));
         $this->assertEquals(718613, MySQLite::mysql_to_days("1967-07-01"));
@@ -39,15 +48,6 @@ class MySQLiteTest extends PHPUnit_Framework_TestCase
         $this->assertEquals(time(), MySQLite::mysql_unix_timestamp());
         $time = time();
         $this->assertEquals($time, MySQLite::mysql_unix_timestamp(date("Y-m-d H:i:s")));
-
-        /* Flow control functions */
-        $this->assertEquals("foo", MySQLite::mysql_if(true, "foo", "bar"));
-        $this->assertEquals("bar", MySQLite::mysql_if(false, "foo", "bar"));
-
-        /* Numeric functions */
-        $this->assertEquals(10, MySQLite::mysql_sqrt(100));
-
-        /* String functions */
     }
 
     /**
