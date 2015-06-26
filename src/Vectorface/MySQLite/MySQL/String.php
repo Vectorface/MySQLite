@@ -17,7 +17,7 @@ trait String
     public static function mysql_concat()
     {
         $str = '';
-        foreach(func_get_args() as $arg) {
+        foreach (func_get_args() as $arg) {
             $str .= $arg;
         }
         return $str;

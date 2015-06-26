@@ -24,7 +24,8 @@ trait Numeric
      * RAND - Returns a random floating-point
      * @return float
      */
-    public static function mysql_rand() {
+    public static function mysql_rand()
+    {
         return mt_rand() / mt_getrandmax();
     }
 }

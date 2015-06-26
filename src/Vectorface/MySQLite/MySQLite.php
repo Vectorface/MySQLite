@@ -39,7 +39,7 @@ class MySQLite
     public static function getFunctionList()
     {
         return array_map(
-            function($f) {
+            function ($f) {
                 return substr($f, 6);
             },
             array_keys(static::getPublicMethodData())
