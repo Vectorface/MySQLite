@@ -59,22 +59,8 @@ class MySQLite
             throw new InvalidArgumentException('Expecting a PDO instance using the SQLite driver');
         }
 
-        /* Turn the array elements into keys for faster processing. */
-        $fnList = isset($fnList) ? array_flip($fnList) : null;
-
         foreach (static::getPublicMethodData() as $method => $paramCount) {
-            $function = substr($method, 6); /* Strip 'mysql_' prefix */
-
-            /* Skip functions not in the list. */
-            if (!empty($fnList) && !isset($fnList[$function])) {
-                continue;
-            }
-
-            if ($paramCount) {
-                $pdo->sqliteCreateFunction($function, [__CLASS__, $method], $paramCount);
-            } else {
-                $pdo->sqliteCreateFunction($function, [__CLASS__, $method]);
-            }
+            static::registerMethod($pdo, $method, $paramCount, $fnList);
         }
 
         return $pdo;
@@ -100,5 +86,29 @@ class MySQLite
         }
 
         return $data;
+    }
+
+    /**
+     * Register a method as an SQLite funtion
+     *
+     * @param PDO &$pdo A PDO instance to which the MySQLite compatibility functions should be added.
+     * @param string $method The internal method name.
+     * @param int $paramCount The suggested parameter count.
+     * @param string[] $fnList A list of functions to create on the SQLite database, or empty for all.
+     * @return bool Returns true if the method was registed. False otherwise.
+     */
+    protected static function registerMethod(PDO &$pdo, $method, $paramCount, array $fnList = null)
+    {
+        $function = substr($method, 6); /* Strip 'mysql_' prefix to get the function name. */
+
+        /* Skip functions not in the list. */
+        if (!empty($fnList) && !in_array($function, $fnList)) {
+            return false;
+        }
+
+        if ($paramCount) {
+            return $pdo->sqliteCreateFunction($function, [__CLASS__, $method], $paramCount);
+        }
+        return $pdo->sqliteCreateFunction($function, [__CLASS__, $method]);
     }
 }
