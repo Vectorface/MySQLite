@@ -14,8 +14,8 @@ trait Comparison
     /**
      * LEAST - Return the smallest argument
      *
-     * @param numeric ... One or more numeric arguments.
-     * @return numeric The argument whose value is smallest.
+     * @param mixed ... One or more numeric arguments.
+     * @return mixed The argument whose value is considered lowest.
      */
     public static function mysql_least()
     {
