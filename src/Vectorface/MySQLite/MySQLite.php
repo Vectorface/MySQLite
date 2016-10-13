@@ -12,7 +12,7 @@ use Vectorface\MySQLite\MySQL\Comparison;
 use Vectorface\MySQLite\MySQL\DateTime;
 use Vectorface\MySQLite\MySQL\Flow;
 use Vectorface\MySQLite\MySQL\Numeric;
-use Vectorface\MySQLite\MySQL\String;
+use Vectorface\MySQLite\MySQL\StringFn;
 
 /**
  * Provides some compatibility functions, allowing SQLite to mimic some MySQL functions.
@@ -29,7 +29,7 @@ class MySQLite
     use DateTime;
     use Flow;
     use Numeric;
-    use String;
+    use StringFn;
 
     /**
      * Get a list of MySQL compatibility functions currently provided by this class.

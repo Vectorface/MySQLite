@@ -7,7 +7,7 @@ namespace Vectorface\MySQLite\MySQL;
  *
  * http://dev.mysql.com/doc/refman/5.7/en/string-functions.html
  */
-trait String
+trait StringFn
 {
 
      /**
