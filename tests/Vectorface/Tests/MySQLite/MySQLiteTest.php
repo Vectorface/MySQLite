@@ -117,6 +117,21 @@ class MySQLiteTest extends PHPUnit_Framework_TestCase
         $this->assertEquals($expected, $result);
     }
 
+    /**
+     * Test the concat_ws function
+     */
+    public function testConcatWS()
+    {
+        $expected = 'test1|test2|test4';
+        $test = MySQLite::mysql_concat_ws("|","test1","test2","test4");
+        $this->assertEquals($expected,$test);
+
+        $pdo = new PDO("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        MySQLite::createFunctions($pdo);
+        $result = $pdo->query('SELECT CONCAT_WS("|","test1","test2","test4")')->fetch(PDO::FETCH_COLUMN);
+        $this->assertEquals($expected,$result);
+    }
+
      /**
      * Test the rand function
      */

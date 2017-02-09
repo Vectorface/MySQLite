@@ -22,4 +22,17 @@ trait StringFn
         }
         return $str;
     }
+
+    /**
+     * Concat_ws - Return a concatinated string of all function arguments provided
+     * it will use the first argument as the seperator
+     * @return string $str concactinated string with seperator
+     */
+    public static function mysql_concat_ws()
+    {
+        $args = func_get_args();
+        $seperator = array_shift($args);
+        $str = implode($seperator,$args);
+        return $str;
+    }
 }
