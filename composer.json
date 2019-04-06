@@ -6,7 +6,11 @@
     "license": "MIT",
     "autoload": {
         "psr-4": {
-            "Vectorface\\MySQLite\\": "src/Vectorface/MySQLite/",
+            "Vectorface\\MySQLite\\": "src/Vectorface/MySQLite/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
             "Vectorface\\Tests\\MySQLite\\": "tests/Vectorface/Tests/MySQLite/"
         }
     },

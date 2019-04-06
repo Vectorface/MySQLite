@@ -31,10 +31,6 @@ class FakePDO extends \PDO
      */
     public function getAttribute($attr)
     {
-        if (isset($this->attributes[$attr])) {
-            return $this->attributes[$attr];
-        }
-
-        return parent::getAttribute($attr);
+        return isset($this->attributes[$attr]) ? $this->attributes[$attr] : parent::getAttribute($attr);
     }
 }
