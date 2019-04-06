@@ -5,7 +5,6 @@
 	colors="true"
 	backupStaticAttributes="false"
 	bootstrap="vendor/autoload.php"
-	strict="true"
 >
 	<testsuites>
 		<testsuite name="MySQL compatibility functions for SQLite">

@@ -32,7 +32,7 @@ trait StringFn
     {
         $args = func_get_args();
         $seperator = array_shift($args);
-        $str = implode($seperator,$args);
+        $str = implode($seperator, $args);
         return $str;
     }
 }
