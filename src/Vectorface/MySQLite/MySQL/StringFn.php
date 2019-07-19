@@ -35,4 +35,19 @@ trait StringFn
         $str = implode($seperator, $args);
         return $str;
     }
+
+
+    /**
+     * Format - Return a formated number string based on the arguements provided
+     * Ignoring the functionality of a third argument, locale
+     * https://dev.mysql.com/doc/refman/8.0/en/string-functions.html#function_format
+     * @return string $str formatted as per arg
+     */
+    public static function mysql_format()
+    {
+        $args = func_get_args();
+        $number = $args[0];
+        $decimals = $args[1];
+        return number_format($number, $decimals);
+    }
 }

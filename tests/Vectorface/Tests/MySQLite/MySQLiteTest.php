@@ -156,4 +156,15 @@ class MySQLiteTest extends TestCase
             array_slice($results, 10, 10)
         );
     }
+
+    public function testFormat()
+    {
+        $expected = '12,312,312';
+        $test = MySQLite::mysql_format("12312312.232", 0);
+        $this->assertEquals($expected, $test);
+
+        $expected = '12.2';
+        $test = MySQLite::mysql_format("12.232", 1);
+        $this->assertEquals($expected, $test);
+    }
 }
