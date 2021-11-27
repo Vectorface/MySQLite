@@ -46,8 +46,8 @@ trait StringFn
     public static function mysql_format()
     {
         $args = func_get_args();
-        $number = $args[0];
-        $decimals = $args[1];
+        $number = isset($args[0]) ? $args[0] : 0.0;
+        $decimals = isset($args[0]) ? $args[0] : 0;
         return number_format($number, $decimals);
     }
 }
