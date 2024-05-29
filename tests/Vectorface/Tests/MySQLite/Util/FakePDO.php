@@ -29,7 +29,7 @@ class FakePDO extends \PDO
      * @param mixed $attr The attribute whose value is to be fetched.
      * @return mixed The value of the attribute.
      */
-    public function getAttribute($attr)
+    public function getAttribute($attr): mixed
     {
         return isset($this->attributes[$attr]) ? $this->attributes[$attr] : parent::getAttribute($attr);
     }
