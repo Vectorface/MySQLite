@@ -20,11 +20,10 @@
         "source": "https://github.com/Vectorface/MySQLite"
     },
     "require": {
-        "php": ">=5.4.0"
+        "php": "^8.0.0"
     },
     "require-dev": {
-        "phpunit/phpunit": "^4.8",
-        "squizlabs/php_codesniffer": "~2.0",
-        "codeclimate/php-test-reporter": "dev-master"
+        "phpunit/phpunit": "^9",
+        "squizlabs/php_codesniffer": "~2.0"
     }
 }

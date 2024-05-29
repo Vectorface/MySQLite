@@ -1,6 +1,6 @@
 MySQLite
 ========
-[![Build Status](https://travis-ci.org/Vectorface/MySQLite.svg?branch=master)](https://travis-ci.org/Vectorface/MySQLite)
+[![Build Status](https://github.com/Vectorface/MySQLite/actions/workflows/ci.yml/badge.svg)](https://github.com/Vectorface/MySQLite/actions)
 [![Code Coverage](https://scrutinizer-ci.com/g/Vectorface/MySQLite/badges/coverage.png?b=master)](https://scrutinizer-ci.com/g/Vectorface/MySQLite/?branch=master)
 
 MySQLite is an easy way to add MySQL functions to SQLite accessed through PDO. This can be useful for testing and development where an SQLite database may be more practical than a real MySQL database.
