@@ -7,12 +7,12 @@ namespace Vectorface\MySQLite\MySQL;
  *
  * http://dev.mysql.com/doc/refman/5.7/en/string-functions.html
  */
-trait StringFn
+trait StringFunctions
 {
 
      /**
-     * Concat - Return a concatinated string of all function arguments provided
-     * @return string $str concatinated string
+     * Concat - Return a concatenated string of all function arguments provided
+     * @return string $str concatenated string
      */
     public static function mysql_concat()
     {
@@ -24,9 +24,9 @@ trait StringFn
     }
 
     /**
-     * Concat_ws - Return a concatinated string of all function arguments provided
-     * it will use the first argument as the seperator
-     * @return string $str concactinated string with seperator
+     * Concat_ws - Return a concatenated string of all function arguments provided
+     * it will use the first argument as the separator
+     * @return string $str concatenated string with separator
      */
     public static function mysql_concat_ws()
     {
@@ -38,7 +38,7 @@ trait StringFn
 
 
     /**
-     * Format - Return a formated number string based on the arguements provided
+     * Format - Return a formated number string based on the arguments provided
      * Ignoring the functionality of a third argument, locale
      * https://dev.mysql.com/doc/refman/8.0/en/string-functions.html#function_format
      * @return string $str formatted as per arg
@@ -47,7 +47,7 @@ trait StringFn
     {
         $args = func_get_args();
         $number = isset($args[0]) ? $args[0] : 0.0;
-        $decimals = isset($args[0]) ? $args[0] : 0;
+        $decimals = isset($args[1]) ? $args[1] : 0;
         return number_format($number, $decimals);
     }
 }
