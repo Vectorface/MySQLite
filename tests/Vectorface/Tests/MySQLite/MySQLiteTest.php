@@ -46,6 +46,8 @@ class MySQLiteTest extends TestCase
         $this->assertEquals(718613, MySQLite::mysql_to_days("1967-07-01"));
         $this->assertEquals(735599, MySQLite::mysql_to_days("2014-01-01"));
         $this->assertEquals(time(), MySQLite::mysql_unix_timestamp());
+        $this->assertEquals(0, MySQLite::mysql_unix_timestamp("0000-00-00 00:00:00"));
+        $this->assertEquals(0, MySQLite::mysql_unix_timestamp("0000-00-00"));
         $time = time();
         $this->assertEquals($time, MySQLite::mysql_unix_timestamp(date("Y-m-d H:i:s")));
     }

@@ -47,6 +47,8 @@ trait DateTime
     {
         if (!isset($date)) {
             return time();
+        } elseif (count_chars(str_replace([":", "-", " "], "", $date), 3) === "0") {
+            return 0; /* MySQL's implementation returns zero for 0000-00-00 00:00:00 and similar */
         }
 
         return strtotime($date);
