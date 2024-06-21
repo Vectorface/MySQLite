@@ -50,4 +50,12 @@ trait StringFunctions
         $decimals = isset($args[1]) ? $args[1] : 0;
         return number_format($number, $decimals);
     }
+
+    /**
+     * Get the soundex value of a given string
+     */
+    public static function mysql_soundex(string $str): string
+    {
+        return soundex($str);
+    }
 }

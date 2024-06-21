@@ -169,4 +169,9 @@ class MySQLiteTest extends TestCase
         $test = MySQLite::mysql_format("12.232", 1);
         $this->assertEquals($expected, $test);
     }
+
+    public function testSoundex()
+    {
+        $this->assertEquals("F000", MySQLite::mysql_soundex("foo"));
+    }
 }
