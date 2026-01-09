@@ -4,9 +4,9 @@ namespace Vectorface\MySQLite;
 
 use InvalidArgumentException;
 use PDO;
+use Pdo\Sqlite;
 use ReflectionClass;
 use ReflectionMethod;
-
 use Vectorface\MySQLite\MySQL\Aggregate;
 use Vectorface\MySQLite\MySQL\Comparison;
 use Vectorface\MySQLite\MySQL\DateTime;
@@ -106,9 +106,13 @@ class MySQLite
             return false;
         }
 
+        $createFunction = class_exists(Sqlite::class, false) && $pdo instanceof Sqlite
+            ? [$pdo, 'createFunction']
+            : [$pdo, 'sqliteCreateFunction'];
+
         if ($paramCount) {
-            return $pdo->sqliteCreateFunction($function, [__CLASS__, $method], $paramCount);
+            return $createFunction($function, [__CLASS__, $method], $paramCount);
         }
-        return $pdo->sqliteCreateFunction($function, [__CLASS__, $method]);
+        return $createFunction($function, [__CLASS__, $method]);
     }
 }

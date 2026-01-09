@@ -4,6 +4,7 @@ namespace Vectorface\Tests\MySQLite;
 
 use InvalidArgumentException;
 use PDO;
+use Pdo\Sqlite;
 use PDOException;
 use PHPUnit\Framework\TestCase;
 use Vectorface\MySQLite\MySQLite;
@@ -14,6 +15,13 @@ use Vectorface\Tests\MySQLite\Util\FakePDO;
  */
 class MySQLiteTest extends TestCase
 {
+    private function getPdo(mixed ...$args): PDO
+    {
+        return class_exists(Pdo\Sqlite::class, false)
+            ? new Pdo\Sqlite(...$args)
+            : new PDO(...$args);
+    }
+
     /**
      * Test miscellaneous compatibility functions.
      */
@@ -67,7 +75,7 @@ class MySQLiteTest extends TestCase
             /* Expected */
         }
 
-        $pdo = new PDO("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         try {
             $pdo->query("SELECT BIT_OR(1, 2)");
             $this->fail("Attempt to BIT_OR two values is expected to fail before the function is created.");
@@ -84,7 +92,7 @@ class MySQLiteTest extends TestCase
      */
     public function testSelectiveCreateFunctions()
     {
-        $pdo = new PDO("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         $this->assertSame($pdo, MySQLite::createFunctions($pdo, ['bit_or']));
         $this->assertEquals(3, $pdo->query("SELECT BIT_OR(1, 2)")->fetch(PDO::FETCH_COLUMN));
         try {
@@ -113,7 +121,7 @@ class MySQLiteTest extends TestCase
         $test = MySQLite::mysql_concat("test1", " ", "test2", " ", "test4");
         $this->assertEquals($expected, $test);
 
-        $pdo = new PDO("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         MySQLite::createFunctions($pdo);
         $result = $pdo->query('SELECT CONCAT("test1"," ","test2"," " ,"test4")')->fetch(PDO::FETCH_COLUMN);
         $this->assertEquals($expected, $result);
@@ -128,7 +136,7 @@ class MySQLiteTest extends TestCase
         $test = MySQLite::mysql_concat_ws("|", "test1", "test2", "test4");
         $this->assertEquals($expected, $test);
 
-        $pdo = new PDO("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         MySQLite::createFunctions($pdo);
         $result = $pdo->query('SELECT CONCAT_WS("|","test1","test2","test4")')->fetch(PDO::FETCH_COLUMN);
         $this->assertEquals($expected, $result);
@@ -139,7 +147,7 @@ class MySQLiteTest extends TestCase
      */
     public function testRand()
     {
-        $pdo = new PDO("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         MySQLite::createFunctions($pdo);
 
         $pdo->exec("CREATE TABLE testing(id INT PRIMARY KEY NOT NULL)");
