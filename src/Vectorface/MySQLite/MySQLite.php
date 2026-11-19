@@ -44,12 +44,13 @@ class MySQLite
      */
     public static function getFunctionList()
     {
-        return array_map(
+        $scalars = array_map(
             function ($f) {
                 return substr($f, 6);
             },
             array_keys(static::getPublicMethodData())
         );
+        return array_merge($scalars, array_keys(static::getAggregateFunctions()));
     }
 
     /**
@@ -68,6 +69,9 @@ class MySQLite
         $state = []; /* Per-connection state objects, shared by all functions registered on this PDO. */
         foreach (static::getPublicMethodData() as $method => $paramCount) {
             static::registerMethod($pdo, $method, $paramCount, $fnList, $state);
+        }
+        foreach (static::getAggregateFunctions() as $function => [$step, $final, $paramCount]) {
+            static::registerAggregate($pdo, $function, $step, $final, $paramCount, $fnList);
         }
 
         return $pdo;
@@ -146,5 +150,29 @@ class MySQLite
             return $createFunction($function, $callback, $paramCount);
         }
         return $createFunction($function, $callback);
+    }
+
+    /**
+     * Register an aggregate function with SQLite.
+     *
+     * @param PDO $pdo A PDO instance to which the aggregate should be added.
+     * @param string $function The SQL function name.
+     * @param string $step The method called for each row in a group.
+     * @param string $final The method called once per group to produce the result.
+     * @param int $paramCount The number of arguments the function takes.
+     * @param string[] $fnList A list of functions to create on the SQLite database, or empty for all.
+     * @return bool Returns true if the aggregate was registered. False otherwise.
+     */
+    protected static function registerAggregate(PDO $pdo, $function, $step, $final, $paramCount, ?array $fnList = null)
+    {
+        if (!empty($fnList) && !in_array($function, $fnList)) {
+            return false;
+        }
+
+        $createAggregate = class_exists(Sqlite::class, false) && $pdo instanceof Sqlite
+            ? [$pdo, 'createAggregate']
+            : [$pdo, 'sqliteCreateAggregate'];
+
+        return $createAggregate($function, [__CLASS__, $step], [__CLASS__, $final], $paramCount);
     }
 }
