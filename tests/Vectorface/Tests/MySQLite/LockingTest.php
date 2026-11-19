@@ -44,11 +44,22 @@ class LockingTest extends TestCase
         return $stmt->fetchColumn();
     }
 
-    public function testFunctionsAreListed()
+    /**
+     * @dataProvider functionNameProvider
+     */
+    public function testFunctionsAreListed(string $function)
     {
-        foreach (['get_lock', 'release_lock', 'release_all_locks', 'is_free_lock'] as $function) {
-            $this->assertContains($function, MySQLite::getFunctionList());
-        }
+        $this->assertContains($function, MySQLite::getFunctionList());
+    }
+
+    public static function functionNameProvider(): array
+    {
+        return [
+            'get_lock' => ['get_lock'],
+            'release_lock' => ['release_lock'],
+            'release_all_locks' => ['release_all_locks'],
+            'is_free_lock' => ['is_free_lock'],
+        ];
     }
 
     public function testLockLifecycle()
@@ -166,7 +177,7 @@ class LockingTest extends TestCase
         $this->query($pdo, "SELECT IS_FREE_LOCK(?)", [$name]);
     }
 
-    public function invalidNameProvider()
+    public static function invalidNameProvider(): array
     {
         return [
             'null' => [null],

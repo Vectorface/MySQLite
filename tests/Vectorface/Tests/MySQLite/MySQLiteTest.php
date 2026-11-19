@@ -11,96 +11,57 @@ use Vectorface\MySQLite\MySQLite;
 use Vectorface\Tests\MySQLite\Util\FakePDO;
 
 /**
- * Test MySQLite; This could be split up into individual function categories later.
+ * Test MySQLite. Function results are grouped by MySQL's function categories, matching the traits in src.
  */
 class MySQLiteTest extends TestCase
 {
-    private function getPdo(mixed ...$args): PDO
+    private function getPdo(): PDO
     {
-        return class_exists(Pdo\Sqlite::class, false)
-            ? new Pdo\Sqlite(...$args)
-            : new PDO(...$args);
+        $args = ["sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]];
+        return class_exists(Sqlite::class, false) ? new Sqlite(...$args) : new PDO(...$args);
     }
 
-    /**
-     * Test miscellaneous compatibility functions.
-     */
-    public function testCompatibilityFunctions()
+    private function getPdoWithFunctions(): PDO
     {
-        /* Comparison functions */
-        $this->assertEquals(1, MySQLite::mysql_least(1, 2, 3, 4));
-        try {
-            MySQLite::mysql_least();
-            $this->fail("Least with no arguments is not valid");
-        } catch (\InvalidArgumentException $e) {
-            /* Expected */
-        }
-
-        /* Flow control functions */
-        $this->assertEquals("foo", MySQLite::mysql_if(true, "foo", "bar"));
-        $this->assertEquals("bar", MySQLite::mysql_if(false, "foo", "bar"));
-
-        /* Numeric functions */
-        $this->assertEquals(10, MySQLite::mysql_sqrt(100));
-    }
-
-    public function testDateTimeFunctions()
-    {
-        $this->assertEquals(date("Y-m-d H:i:s"), MySQLite::mysql_now());
-        $this->assertEquals(date("Y-m-d"), MySQLite::mysql_curdate());
-        $this->assertEquals(365, MySQLite::mysql_to_days("0000-12-31"));
-        $this->assertEquals(718613, MySQLite::mysql_to_days("1967-07-01"));
-        $this->assertEquals(735599, MySQLite::mysql_to_days("2014-01-01"));
-        $this->assertEquals(time(), MySQLite::mysql_unix_timestamp());
-        $this->assertEquals(0, MySQLite::mysql_unix_timestamp("0000-00-00 00:00:00"));
-        $this->assertEquals(0, MySQLite::mysql_unix_timestamp("0000-00-00"));
-        $time = time();
-        $this->assertEquals($time, MySQLite::mysql_unix_timestamp(date("Y-m-d H:i:s")));
-    }
-
-    /**
-     * TO_DAYS must not depend on the time zone, including zones east of UTC and dates in daylight saving time.
-     */
-    public function testToDaysInTimeZones()
-    {
-        $timezone = date_default_timezone_get();
-        try {
-            foreach (['UTC', 'America/Toronto', 'Europe/Berlin', 'Australia/Sydney', 'Pacific/Kiritimati'] as $zone) {
-                date_default_timezone_set($zone);
-                $this->assertEquals(365, MySQLite::mysql_to_days("0000-12-31"), $zone);
-                $this->assertEquals(718613, MySQLite::mysql_to_days("1967-07-01"), $zone);
-                $this->assertEquals(735599, MySQLite::mysql_to_days("2014-01-01"), $zone);
-                $this->assertEquals(735780, MySQLite::mysql_to_days("2014-07-01"), $zone);
-                $this->assertEquals(735780, MySQLite::mysql_to_days("2014-07-01 23:59:59"), $zone);
-            }
-        } finally {
-            date_default_timezone_set($timezone);
-        }
-    }
-
-    /**
-     * Like MySQL, TO_DAYS and UNIX_TIMESTAMP give NULL for NULL and invalid dates, and UNIX_TIMESTAMP gives 0 when out
-     * of range.
-     */
-    public function testToDaysAndUnixTimestampEdgeCases()
-    {
-        $this->assertSame(1, MySQLite::mysql_to_days("0000-01-01"));
-        $this->assertSame(733321, MySQLite::mysql_to_days("2007-10-07"));
-        $this->assertNull(MySQLite::mysql_to_days(null));
-        $this->assertNull(MySQLite::mysql_to_days("not a date"));
-        $this->assertNull(MySQLite::mysql_to_days("0000-00-00"));
-        $this->assertNull(MySQLite::mysql_to_days("2010-02-30"));
-
-        $this->assertNull(MySQLite::mysql_unix_timestamp(null));
-        $this->assertNull(MySQLite::mysql_unix_timestamp("not a date"));
-        $this->assertSame(0, MySQLite::mysql_unix_timestamp("1960-01-01 00:00:00"));
-        $this->assertSame(0, MySQLite::mysql_unix_timestamp("3100-01-01 00:00:00"));
-
-        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $pdo = $this->getPdo();
         MySQLite::createFunctions($pdo);
-        $this->assertNull($pdo->query("SELECT TO_DAYS(NULL)")->fetch(PDO::FETCH_COLUMN));
-        $this->assertNull($pdo->query("SELECT UNIX_TIMESTAMP(NULL)")->fetch(PDO::FETCH_COLUMN));
-        $this->assertEqualsWithDelta(time(), $pdo->query("SELECT UNIX_TIMESTAMP()")->fetch(PDO::FETCH_COLUMN), 1);
+        return $pdo;
+    }
+
+    /**
+     * Assert that a function gives the expected result both when called directly and when called through SQLite.
+     *
+     * @param mixed $expected The expected result. Compared loosely through SQLite, as PHP 8.0 returns strings.
+     * @param string $function The function name, e.g. 'concat'.
+     * @param array $args The function arguments.
+     */
+    private function assertFunctionResult($expected, string $function, array $args)
+    {
+        $this->assertSame($expected, MySQLite::{"mysql_$function"}(...$args), "Direct call to $function");
+
+        $stmt = $this->getPdoWithFunctions()->prepare(
+            sprintf("SELECT %s(%s)", $function, implode(", ", array_fill(0, count($args), "?")))
+        );
+        $stmt->execute($args);
+        $actual = $stmt->fetch(PDO::FETCH_COLUMN);
+        if ($expected === null) {
+            $this->assertNull($actual, "SQL call to $function");
+        } else {
+            $this->assertEquals($expected, $actual, "SQL call to $function");
+        }
+    }
+
+    /*
+     * Registration
+     */
+
+    public function testCreateFunctionsRequiresSqlite()
+    {
+        $fakepdo = new FakePDO();
+        $fakepdo->attributes[PDO::ATTR_DRIVER_NAME] = 'mysql';
+
+        $this->expectException(InvalidArgumentException::class);
+        MySQLite::createFunctions($fakepdo);
     }
 
     /**
@@ -108,17 +69,7 @@ class MySQLiteTest extends TestCase
      */
     public function testCreateFunctions()
     {
-        $fakepdo = new FakePDO();
-        $fakepdo->attributes[PDO::ATTR_DRIVER_NAME] = 'mysql';
-
-        try {
-            MySQLite::createFunctions($fakepdo);
-            $this->fail("Attempt to create functions with a driver other than SQLite should fail.");
-        } catch (InvalidArgumentException $e) {
-            /* Expected */
-        }
-
-        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $pdo = $this->getPdo();
         try {
             $pdo->query("SELECT BIT_OR(1)");
             $this->fail("Attempt to BIT_OR is expected to fail before the function is created.");
@@ -135,16 +86,36 @@ class MySQLiteTest extends TestCase
      */
     public function testSelectiveCreateFunctions()
     {
-        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $pdo = $this->getPdo();
         $this->assertSame($pdo, MySQLite::createFunctions($pdo, ['bit_or']));
         $this->assertEquals(3, $pdo->query("SELECT BIT_OR(3)")->fetch(PDO::FETCH_COLUMN));
-        try {
-            $pdo->query("SELECT UNIX_TIMESTAMP()");
-            $this->fail("UNIX_TIMESTAMP function is expected not to have been created.");
-        } catch (PDOException $e) {
-            /* Expected */
-        }
+
+        $this->expectException(PDOException::class);
+        $pdo->query("SELECT UNIX_TIMESTAMP()");
     }
+
+    /**
+     * @dataProvider functionNameProvider
+     */
+    public function testGetFunctionList(string $function)
+    {
+        $this->assertContains($function, MySQLite::getFunctionList());
+    }
+
+    public static function functionNameProvider(): array
+    {
+        $functions = [
+            'bit_or', 'least', 'if', 'sqrt', 'rand', 'now', 'curdate', 'to_days', 'unix_timestamp', 'year',
+            'datediff', 'timediff', 'concat', 'concat_ws', 'format', 'soundex', 'right',
+        ];
+        return array_combine($functions, array_map(function ($function) {
+            return [$function];
+        }, $functions));
+    }
+
+    /*
+     * Aggregate functions
+     */
 
     /**
      * BIT_OR is an aggregate: it combines a column's values across rows, ignoring NULLs.
@@ -153,8 +124,7 @@ class MySQLiteTest extends TestCase
      */
     public function testBitOr(int $expected, array $values)
     {
-        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-        MySQLite::createFunctions($pdo);
+        $pdo = $this->getPdoWithFunctions();
         $pdo->exec("CREATE TABLE t (v)");
         $insert = $pdo->prepare("INSERT INTO t (v) VALUES (?)");
         foreach ($values as $value) {
@@ -180,8 +150,7 @@ class MySQLiteTest extends TestCase
 
     public function testBitOrGroupBy()
     {
-        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-        MySQLite::createFunctions($pdo);
+        $pdo = $this->getPdoWithFunctions();
         $pdo->exec("CREATE TABLE t (k, v); INSERT INTO t VALUES ('a', 1), ('a', 2), ('b', 8), ('b', 16)");
 
         $this->assertEquals(
@@ -193,53 +162,39 @@ class MySQLiteTest extends TestCase
         $pdo->query("SELECT BIT_OR(1, 2)"); /* MySQL's BIT_OR takes exactly one argument */
     }
 
-    /**
-     * Test that registered functions are listed and available.
+    /*
+     * Comparison, flow control and numeric functions
      */
-    public function testGetFunctionList()
-    {
-        $this->assertContains("bit_or", MySQLite::getFunctionList());
-        $this->assertContains("unix_timestamp", MySQLite::getFunctionList());
-    }
 
     /**
-     * Test the concat function
+     * @dataProvider comparisonFlowAndNumericProvider
      */
-    public function testConcat()
+    public function testComparisonFlowAndNumericFunctions($expected, string $function, array $args)
     {
-        $expected = 'test1 test2 test4';
-        $test = MySQLite::mysql_concat("test1", " ", "test2", " ", "test4");
-        $this->assertEquals($expected, $test);
-
-        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-        MySQLite::createFunctions($pdo);
-        $result = $pdo->query('SELECT CONCAT("test1"," ","test2"," " ,"test4")')->fetch(PDO::FETCH_COLUMN);
-        $this->assertEquals($expected, $result);
+        $this->assertFunctionResult($expected, $function, $args);
     }
 
-    /**
-     * Test the concat_ws function
-     */
-    public function testConcatWS()
+    public static function comparisonFlowAndNumericProvider(): array
     {
-        $expected = 'test1|test2|test4';
-        $test = MySQLite::mysql_concat_ws("|", "test1", "test2", "test4");
-        $this->assertEquals($expected, $test);
-
-        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-        MySQLite::createFunctions($pdo);
-        $result = $pdo->query('SELECT CONCAT_WS("|","test1","test2","test4")')->fetch(PDO::FETCH_COLUMN);
-        $this->assertEquals($expected, $result);
+        return [
+            'LEAST' => [1, 'least', [3, 1, 4, 2]],
+            'IF true' => ['foo', 'if', [true, 'foo', 'bar']],
+            'IF false' => ['bar', 'if', [false, 'foo', 'bar']],
+            'SQRT' => [10.0, 'sqrt', [100]],
+            'SQRT of NULL' => [null, 'sqrt', [null]],
+            'SQRT of a negative number' => [null, 'sqrt', [-16]],
+        ];
     }
 
-     /**
-     * Test the rand function
-     */
+    public function testLeastRequiresArguments()
+    {
+        $this->expectException(InvalidArgumentException::class);
+        MySQLite::mysql_least();
+    }
+
     public function testRand()
     {
-        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-        MySQLite::createFunctions($pdo);
-
+        $pdo = $this->getPdoWithFunctions();
         $pdo->exec("CREATE TABLE testing(id INT PRIMARY KEY NOT NULL)");
         $stmt = $pdo->prepare("INSERT INTO testing (id) VALUES (?)");
         for ($x = 0; $x <= 10; $x++) {
@@ -251,10 +206,7 @@ class MySQLiteTest extends TestCase
             $results[] = $pdo->query('SELECT id FROM testing ORDER BY RAND() LIMIT 1')->fetch(PDO::FETCH_COLUMN);
         }
 
-        $this->assertNotEquals(
-            array_slice($results, 0, 10),
-            array_slice($results, 10, 10)
-        );
+        $this->assertNotEquals(array_slice($results, 0, 10), array_slice($results, 10, 10));
     }
 
     /**
@@ -264,9 +216,7 @@ class MySQLiteTest extends TestCase
     {
         $this->assertEqualsWithDelta($expected, MySQLite::mysql_rand($seed), 1e-14);
 
-        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-        MySQLite::createFunctions($pdo);
-        $stmt = $pdo->prepare("SELECT RAND(?)");
+        $stmt = $this->getPdoWithFunctions()->prepare("SELECT RAND(?)");
         $stmt->execute([$seed]);
         $this->assertEqualsWithDelta($expected, $stmt->fetch(PDO::FETCH_COLUMN), 1e-14);
     }
@@ -281,163 +231,185 @@ class MySQLiteTest extends TestCase
         ];
     }
 
-    public function testFormat()
-    {
-        $expected = '12,312,312';
-        $test = MySQLite::mysql_format("12312312.232", 0);
-        $this->assertEquals($expected, $test);
-
-        $expected = '12.2';
-        $test = MySQLite::mysql_format("12.232", 1);
-        $this->assertEquals($expected, $test);
-    }
-
-    public function testSoundex()
-    {
-        $this->assertEquals("F000", MySQLite::mysql_soundex("foo"));
-    }
+    /*
+     * Date and time functions
+     */
 
     /**
-     * Test NULL handling, which follows MySQL: mostly NULL in, NULL out.
-     *
-     * @dataProvider nullArgumentProvider
+     * @dataProvider dateTimeProvider
      */
-    public function testNullArguments($expected, string $function, array $args)
+    public function testDateTimeFunctions($expected, string $function, array $args)
     {
         $this->assertFunctionResult($expected, $function, $args);
     }
 
-    public static function nullArgumentProvider(): array
+    public static function dateTimeProvider(): array
     {
         return [
-            'CONCAT with a NULL' => [null, 'concat', ['a', null, 'b']],
-            'CONCAT_WS skips NULLs' => ['a|b', 'concat_ws', ['|', 'a', null, 'b']],
-            'CONCAT_WS keeps empty strings' => ['a||b', 'concat_ws', ['|', 'a', '', 'b']],
-            'CONCAT_WS with NULL separator' => [null, 'concat_ws', [null, 'a', 'b']],
-            'FORMAT with NULL number' => [null, 'format', [null, 2]],
-            'FORMAT with NULL decimals' => [null, 'format', [1.5, null]],
-            'SOUNDEX of NULL' => [null, 'soundex', [null]],
-            'SQRT of NULL' => [null, 'sqrt', [null]],
-            'SQRT of a negative number' => [null, 'sqrt', [-16]],
+            /* TO_DAYS */
+            'TO_DAYS of year 0' => [365, 'to_days', ['0000-12-31']],
+            'TO_DAYS of first day of year 0' => [1, 'to_days', ['0000-01-01']],
+            'TO_DAYS before 1970' => [718613, 'to_days', ['1967-07-01']],
+            'TO_DAYS (MySQL manual)' => [733321, 'to_days', ['2007-10-07']],
+            'TO_DAYS of NULL' => [null, 'to_days', [null]],
+            'TO_DAYS of garbage' => [null, 'to_days', ['not a date']],
+            'TO_DAYS of zero date' => [null, 'to_days', ['0000-00-00']],
+            'TO_DAYS of invalid date' => [null, 'to_days', ['2010-02-30']],
+
+            /* UNIX_TIMESTAMP (see also testCurrentTimeFunctions) */
+            'UNIX_TIMESTAMP of zero datetime' => [0, 'unix_timestamp', ['0000-00-00 00:00:00']],
+            'UNIX_TIMESTAMP of zero date' => [0, 'unix_timestamp', ['0000-00-00']],
+            'UNIX_TIMESTAMP before 1970' => [0, 'unix_timestamp', ['1960-01-01 00:00:00']],
+            'UNIX_TIMESTAMP after 3001' => [0, 'unix_timestamp', ['3100-01-01 00:00:00']],
+            'UNIX_TIMESTAMP of NULL' => [null, 'unix_timestamp', [null]],
+            'UNIX_TIMESTAMP of garbage' => [null, 'unix_timestamp', ['not a date']],
+
+            /* YEAR */
+            'YEAR of date' => [1987, 'year', ['1987-01-01']],
+            'YEAR of datetime' => [2010, 'year', ['2010-11-30 12:34:56']],
+            'YEAR of incomplete date' => [2010, 'year', ['2010-00-00']],
+            'YEAR of zero date' => [0, 'year', ['0000-00-00']],
+            'YEAR of invalid date' => [null, 'year', ['2010-02-30']],
+            'YEAR of garbage' => [null, 'year', ['not a date']],
+            'YEAR of NULL' => [null, 'year', [null]],
+
+            /* DATEDIFF */
+            'DATEDIFF ignores time (MySQL manual)' => [1, 'datediff', ['2007-12-31 23:59:59', '2007-12-30']],
+            'DATEDIFF negative (MySQL manual)' => [-31, 'datediff', ['2010-11-30 23:59:59', '2010-12-31']],
+            'DATEDIFF across leap day' => [2, 'datediff', ['2024-03-01', '2024-02-28']],
+            'DATEDIFF across centuries' => [365242, 'datediff', ['2000-01-01', '1000-01-01']],
+            'DATEDIFF same day' => [0, 'datediff', ['2010-01-01 00:00:00', '2010-01-01 23:59:59']],
+            'DATEDIFF of invalid date' => [null, 'datediff', ['2010-02-30', '2010-01-01']],
+            'DATEDIFF of zero date' => [null, 'datediff', ['0000-00-00', '2010-01-01']],
+            'DATEDIFF of NULL' => [null, 'datediff', [null, '2010-01-01']],
+            'DATEDIFF of garbage' => [null, 'datediff', ['2010-01-01', 'not a date']],
+
+            /* TIMEDIFF; the SQL calls also check that ours replaces SQLite 3.43+'s own timediff() */
+            'TIMEDIFF fractional (MySQL manual)' => [
+                '-00:00:00.000001', 'timediff', ['2000:01:01 00:00:00', '2000:01:01 00:00:00.000001'],
+            ],
+            'TIMEDIFF over a day (MySQL manual)' => [
+                '46:58:57.999999', 'timediff', ['2008-12-31 23:59:59.000001', '2008-12-30 01:01:01.000002'],
+            ],
+            'TIMEDIFF of date and datetime' => ['24:00:01', 'timediff', ['2010-01-02 00:00:01', '2010-01-01']],
+            'TIMEDIFF of times' => ['00:29:45', 'timediff', ['10:00:00', '09:30:15']],
+            'TIMEDIFF of time with days' => ['-26:00:00', 'timediff', ['-1 01:00:00', '01:00:00']],
+            'TIMEDIFF of negative time' => ['25:00:00', 'timediff', ['1 00:00:00', '-1:00']],
+            'TIMEDIFF fraction on one side' => ['01:00:00.500000', 'timediff', ['10:00:00.5', '09:00:00']],
+            'TIMEDIFF clamped high' => ['838:59:59', 'timediff', ['2010-01-01 00:00:00', '2000-01-01 00:00:00']],
+            'TIMEDIFF clamped low' => ['-838:59:59', 'timediff', ['2000-01-01', '2010-01-01']],
+            'TIMEDIFF datetime and time' => [null, 'timediff', ['2010-01-01 00:00:00', '10:00:00']],
+            'TIMEDIFF time and datetime' => [null, 'timediff', ['10:00:00', '2010-01-01 00:00:00']],
+            'TIMEDIFF of invalid time' => [null, 'timediff', ['10:61:00', '10:00:00']],
+            'TIMEDIFF of invalid date' => [null, 'timediff', ['2010-02-30 00:00:00', '2010-01-01 00:00:00']],
+            'TIMEDIFF of NULL' => [null, 'timediff', [null, '10:00:00']],
         ];
     }
 
     /**
-     * Assert that a function gives the expected result both when called directly and when called through SQLite.
+     * Date functions must not depend on PHP's time zone, including zones east of UTC and across daylight saving time.
      *
-     * @param mixed $expected The expected result. Compared loosely through SQLite, as PHP 8.0 returns strings.
-     * @param string $function The function name, e.g. 'concat'.
-     * @param array $args The function arguments.
+     * @dataProvider timeZoneProvider
      */
-    private function assertFunctionResult($expected, string $function, array $args)
+    public function testDateFunctionsIgnoreTimeZone(string $zone, $expected, string $function, array $args)
     {
-        $this->assertSame($expected, MySQLite::{"mysql_$function"}(...$args), "Direct call to $function");
-
-        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-        MySQLite::createFunctions($pdo);
-        $stmt = $pdo->prepare(sprintf("SELECT %s(%s)", $function, implode(", ", array_fill(0, count($args), "?"))));
-        $stmt->execute($args);
-        $actual = $stmt->fetch(PDO::FETCH_COLUMN);
-        if ($expected === null) {
-            $this->assertNull($actual, "SQL call to $function");
-        } else {
-            $this->assertEquals($expected, $actual, "SQL call to $function");
-        }
-    }
-
-    public function testYear()
-    {
-        $this->assertSame(1987, MySQLite::mysql_year('1987-01-01'));
-        $this->assertSame(2010, MySQLite::mysql_year('2010-11-30 12:34:56'));
-        $this->assertSame(2010, MySQLite::mysql_year('2010-00-00'), "Incomplete dates are allowed");
-        $this->assertSame(0, MySQLite::mysql_year('0000-00-00'));
-        $this->assertNull(MySQLite::mysql_year('2010-02-30'));
-        $this->assertNull(MySQLite::mysql_year('not a date'));
-        $this->assertNull(MySQLite::mysql_year(null));
-
-        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-        MySQLite::createFunctions($pdo);
-        $this->assertEquals(2014, $pdo->query("SELECT YEAR('2014-06-15')")->fetch(PDO::FETCH_COLUMN));
-    }
-
-    public function testDatediff()
-    {
-        /* Examples from the MySQL manual */
-        $this->assertSame(1, MySQLite::mysql_datediff('2007-12-31 23:59:59', '2007-12-30'));
-        $this->assertSame(-31, MySQLite::mysql_datediff('2010-11-30 23:59:59', '2010-12-31'));
-
-        $this->assertSame(2, MySQLite::mysql_datediff('2024-03-01', '2024-02-28'), "Leap day is counted");
-        $this->assertSame(365242, MySQLite::mysql_datediff('2000-01-01', '1000-01-01'));
-        $this->assertSame(0, MySQLite::mysql_datediff('2010-01-01 00:00:00', '2010-01-01 23:59:59'));
-        $this->assertNull(MySQLite::mysql_datediff('2010-02-30', '2010-01-01'));
-        $this->assertNull(MySQLite::mysql_datediff('0000-00-00', '2010-01-01'));
-        $this->assertNull(MySQLite::mysql_datediff(null, '2010-01-01'));
-        $this->assertNull(MySQLite::mysql_datediff('2010-01-01', 'not a date'));
-
         $timezone = date_default_timezone_get();
+        date_default_timezone_set($zone);
         try {
-            date_default_timezone_set('America/New_York');
-            $this->assertSame(1, MySQLite::mysql_datediff('2024-03-11', '2024-03-10'), "DST doesn't shift days");
+            $this->assertFunctionResult($expected, $function, $args);
         } finally {
             date_default_timezone_set($timezone);
         }
-
-        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-        MySQLite::createFunctions($pdo);
-        $this->assertEquals(-31, $pdo->query("SELECT DATEDIFF('2010-11-30', '2010-12-31')")->fetch(PDO::FETCH_COLUMN));
     }
 
-    public function testTimediff()
+    public static function timeZoneProvider(): iterable
     {
-        /* Examples from the MySQL manual */
-        $this->assertSame(
-            '-00:00:00.000001',
-            MySQLite::mysql_timediff('2000:01:01 00:00:00', '2000:01:01 00:00:00.000001')
-        );
-        $this->assertSame(
-            '46:58:57.999999',
-            MySQLite::mysql_timediff('2008-12-31 23:59:59.000001', '2008-12-30 01:01:01.000002')
-        );
-
-        /* Times */
-        $this->assertSame('00:29:45', MySQLite::mysql_timediff('10:00:00', '09:30:15'));
-        $this->assertSame('-26:00:00', MySQLite::mysql_timediff('-1 01:00:00', '01:00:00'));
-        $this->assertSame('25:00:00', MySQLite::mysql_timediff('1 00:00:00', '-1:00'));
-        $this->assertSame('01:00:00.500000', MySQLite::mysql_timediff('10:00:00.5', '09:00:00'));
-
-        /* Results are clamped to MySQL's TIME range */
-        $this->assertSame('838:59:59', MySQLite::mysql_timediff('2010-01-01 00:00:00', '2000-01-01 00:00:00'));
-        $this->assertSame('-838:59:59', MySQLite::mysql_timediff('2000-01-01', '2010-01-01'));
-
-        /* Invalid or mismatched arguments */
-        $this->assertNull(MySQLite::mysql_timediff('2010-01-01 00:00:00', '10:00:00'));
-        $this->assertNull(MySQLite::mysql_timediff('10:00:00', '2010-01-01 00:00:00'));
-        $this->assertNull(MySQLite::mysql_timediff('10:61:00', '10:00:00'));
-        $this->assertNull(MySQLite::mysql_timediff('2010-02-30 00:00:00', '2010-01-01 00:00:00'));
-        $this->assertNull(MySQLite::mysql_timediff(null, '10:00:00'));
-
-        /* SQLite 3.43+ has its own timediff() with a different format; ours must replace it. */
-        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-        MySQLite::createFunctions($pdo);
-        $this->assertEquals(
-            '24:00:01',
-            $pdo->query("SELECT TIMEDIFF('2010-01-02 00:00:01', '2010-01-01')")->fetch(PDO::FETCH_COLUMN)
-        );
+        $cases = [
+            [365, 'to_days', ['0000-12-31']],
+            [718613, 'to_days', ['1967-07-01']],
+            [735599, 'to_days', ['2014-01-01']],
+            [735780, 'to_days', ['2014-07-01']],
+            [735780, 'to_days', ['2014-07-01 23:59:59']],
+            [1, 'datediff', ['2024-03-11', '2024-03-10']], /* North American daylight saving starts 2024-03-10 */
+        ];
+        foreach (['UTC', 'America/Toronto', 'Europe/Berlin', 'Australia/Sydney', 'Pacific/Kiritimati'] as $zone) {
+            foreach ($cases as [$expected, $function, $args]) {
+                $name = sprintf("%s: %s('%s')", $zone, $function, implode("', '", $args));
+                yield $name => [$zone, $expected, $function, $args];
+            }
+        }
     }
 
-    public function testRight()
+    /**
+     * Functions of the current time. Each result must match the time just before or just after the call, so a clock
+     * tick mid-test can't cause a failure.
+     */
+    public function testCurrentTimeFunctions()
     {
-        $this->assertSame('rbar', MySQLite::mysql_right('foobarbar', 4));
-        $this->assertSame('abc', MySQLite::mysql_right('abc', 10));
-        $this->assertSame('', MySQLite::mysql_right('abc', 0));
-        $this->assertSame('', MySQLite::mysql_right('abc', -1));
-        $this->assertSame('ïve', MySQLite::mysql_right('naïve', 3), "Counts characters, not bytes");
-        $this->assertSame('23', MySQLite::mysql_right(123, 2));
-        $this->assertNull(MySQLite::mysql_right(null, 1));
-        $this->assertNull(MySQLite::mysql_right('abc', null));
+        $before = date("Y-m-d H:i:s");
+        $now = MySQLite::mysql_now();
+        $this->assertContains($now, [$before, date("Y-m-d H:i:s")]);
 
-        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-        MySQLite::createFunctions($pdo);
-        $this->assertEquals('rbar', $pdo->query("SELECT RIGHT('foobarbar', 4)")->fetch(PDO::FETCH_COLUMN));
+        $before = date("Y-m-d");
+        $curdate = MySQLite::mysql_curdate();
+        $this->assertContains($curdate, [$before, date("Y-m-d")]);
+
+        $before = time();
+        $timestamp = MySQLite::mysql_unix_timestamp();
+        $this->assertContains($timestamp, [$before, time()]);
+
+        $before = time();
+        $timestamp = $this->getPdoWithFunctions()->query("SELECT UNIX_TIMESTAMP()")->fetch(PDO::FETCH_COLUMN);
+        $this->assertContains((int)$timestamp, [$before, time()]);
+
+        $time = time();
+        $this->assertSame($time, MySQLite::mysql_unix_timestamp(date("Y-m-d H:i:s", $time)));
+    }
+
+    /*
+     * String functions
+     */
+
+    /**
+     * @dataProvider stringProvider
+     */
+    public function testStringFunctions($expected, string $function, array $args)
+    {
+        $this->assertFunctionResult($expected, $function, $args);
+    }
+
+    public static function stringProvider(): array
+    {
+        return [
+            /* CONCAT */
+            'CONCAT' => ['test1 test2 test4', 'concat', ['test1', ' ', 'test2', ' ', 'test4']],
+            'CONCAT with a NULL' => [null, 'concat', ['a', null, 'b']],
+
+            /* CONCAT_WS */
+            'CONCAT_WS' => ['test1|test2|test4', 'concat_ws', ['|', 'test1', 'test2', 'test4']],
+            'CONCAT_WS skips NULLs' => ['a|b', 'concat_ws', ['|', 'a', null, 'b']],
+            'CONCAT_WS keeps empty strings' => ['a||b', 'concat_ws', ['|', 'a', '', 'b']],
+            'CONCAT_WS with NULL separator' => [null, 'concat_ws', [null, 'a', 'b']],
+
+            /* FORMAT */
+            'FORMAT with no decimals' => ['12,312,312', 'format', ['12312312.232', 0]],
+            'FORMAT with decimals' => ['12.2', 'format', ['12.232', 1]],
+            'FORMAT with NULL number' => [null, 'format', [null, 2]],
+            'FORMAT with NULL decimals' => [null, 'format', [1.5, null]],
+
+            /* SOUNDEX */
+            'SOUNDEX' => ['F000', 'soundex', ['foo']],
+            'SOUNDEX of NULL' => [null, 'soundex', [null]],
+
+            /* RIGHT */
+            'RIGHT (MySQL manual)' => ['rbar', 'right', ['foobarbar', 4]],
+            'RIGHT longer than string' => ['abc', 'right', ['abc', 10]],
+            'RIGHT of zero characters' => ['', 'right', ['abc', 0]],
+            'RIGHT of negative length' => ['', 'right', ['abc', -1]],
+            'RIGHT counts characters, not bytes' => ['ïve', 'right', ['naïve', 3]],
+            'RIGHT of a number' => ['23', 'right', [123, 2]],
+            'RIGHT of NULL string' => [null, 'right', [null, 1]],
+            'RIGHT of NULL length' => [null, 'right', ['abc', null]],
+        ];
     }
 }
