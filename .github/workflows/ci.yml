@@ -11,11 +11,17 @@ jobs:
         php-versions: ['8.0', '8.1', '8.2', '8.3', '8.4', '8.5']
 
     steps:
-      - uses: actions/checkout@v3
-      - uses: php-actions/composer@run-as-current-user
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-versions }}
+          extensions: mbstring, pdo_sqlite
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress
 
       - name: PHPUnit Tests
-        uses: php-actions/phpunit@v4
-        with:
-          bootstrap: vendor/autoload.php
-          configuration: phpunit.xml
+        run: vendor/bin/phpunit
