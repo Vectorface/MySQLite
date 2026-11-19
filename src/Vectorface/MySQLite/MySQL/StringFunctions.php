@@ -9,8 +9,7 @@ namespace Vectorface\MySQLite\MySQL;
  */
 trait StringFunctions
 {
-
-     /**
+    /**
      * Concat - Return a concatenated string of all function arguments provided
      * @return string $str concatenated string
      */
