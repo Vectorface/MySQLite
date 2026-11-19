@@ -62,6 +62,26 @@ class MySQLiteTest extends TestCase
     }
 
     /**
+     * TO_DAYS must not depend on the time zone, including zones east of UTC and dates in daylight saving time.
+     */
+    public function testToDaysInTimeZones()
+    {
+        $timezone = date_default_timezone_get();
+        try {
+            foreach (['UTC', 'America/Toronto', 'Europe/Berlin', 'Australia/Sydney', 'Pacific/Kiritimati'] as $zone) {
+                date_default_timezone_set($zone);
+                $this->assertEquals(365, MySQLite::mysql_to_days("0000-12-31"), $zone);
+                $this->assertEquals(718613, MySQLite::mysql_to_days("1967-07-01"), $zone);
+                $this->assertEquals(735599, MySQLite::mysql_to_days("2014-01-01"), $zone);
+                $this->assertEquals(735780, MySQLite::mysql_to_days("2014-07-01"), $zone);
+                $this->assertEquals(735780, MySQLite::mysql_to_days("2014-07-01 23:59:59"), $zone);
+            }
+        } finally {
+            date_default_timezone_set($timezone);
+        }
+    }
+
+    /**
      * Test that createFunctions hooks the functions into a PDO object.
      */
     public function testCreateFunctions()
