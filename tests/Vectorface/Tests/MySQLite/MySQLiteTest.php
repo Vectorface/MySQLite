@@ -50,6 +50,7 @@ class MySQLiteTest extends TestCase
     public function testDateTimeFunctions()
     {
         $this->assertEquals(date("Y-m-d H:i:s"), MySQLite::mysql_now());
+        $this->assertEquals(date("Y-m-d"), MySQLite::mysql_curdate());
         $this->assertEquals(365, MySQLite::mysql_to_days("0000-12-31"));
         $this->assertEquals(718613, MySQLite::mysql_to_days("1967-07-01"));
         $this->assertEquals(735599, MySQLite::mysql_to_days("2014-01-01"));
