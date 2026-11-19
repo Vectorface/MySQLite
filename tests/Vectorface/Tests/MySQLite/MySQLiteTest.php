@@ -257,6 +257,30 @@ class MySQLiteTest extends TestCase
         );
     }
 
+    /**
+     * @dataProvider seededRandProvider
+     */
+    public function testSeededRand(float $expected, $seed)
+    {
+        $this->assertEqualsWithDelta($expected, MySQLite::mysql_rand($seed), 1e-14);
+
+        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        MySQLite::createFunctions($pdo);
+        $stmt = $pdo->prepare("SELECT RAND(?)");
+        $stmt->execute([$seed]);
+        $this->assertEqualsWithDelta($expected, $stmt->fetch(PDO::FETCH_COLUMN), 1e-14);
+    }
+
+    public static function seededRandProvider(): array
+    {
+        /* MySQL's first value for seed 3, from the RAND() example in the MySQL manual. */
+        return [
+            'integer seed' => [0.90576975597606, 3],
+            'numeric string seed' => [0.90576975597606, '3'],
+            'decimal seed is rounded' => [0.90576975597606, 2.6],
+        ];
+    }
+
     public function testFormat()
     {
         $expected = '12,312,312';
