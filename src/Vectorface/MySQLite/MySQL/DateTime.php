@@ -160,7 +160,7 @@ trait DateTime
     }
 
     /**
-     * Parse a MySQL date or datetime string, like 'YYYY-MM-DD[ HH:MM:SS[.ffffff]]'.
+     * Parse a MySQL date or datetime string, like 'YYYY-MM-DD[ HH:MM:SS[.ffffff]]' or 'YYYYMMDD[HHMMSS[.ffffff]]'.
      *
      * Any punctuation may separate the date parts, and 'T' may separate the date and time, as MySQL allows.
      * Date parts are not validated here, because some functions accept incomplete dates like '2010-00-00'.
@@ -173,7 +173,9 @@ trait DateTime
     {
         $pattern = '/^\s*(\d{4})[[:punct:]](\d{1,2})[[:punct:]](\d{1,2})'
             . '(?:[ T](\d{1,2})[[:punct:]](\d{1,2})(?:[[:punct:]](\d{1,2})(?:\.(\d+))?)?)?\s*$/';
-        if ($value === null || !preg_match($pattern, (string)$value, $m)) {
+        $compact = '/^\s*(\d{4})(\d{2})(\d{2})(?:(\d{2})(\d{2})(\d{2})(?:\.(\d+))?)?\s*$/'; /* Same groups */
+        $value = $value === null ? '' : (string)$value;
+        if (!preg_match($pattern, $value, $m) && !preg_match($compact, $value, $m)) {
             return null;
         }
 
