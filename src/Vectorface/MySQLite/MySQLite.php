@@ -7,10 +7,12 @@ use PDO;
 use Pdo\Sqlite;
 use ReflectionClass;
 use ReflectionMethod;
+use ReflectionNamedType;
 use Vectorface\MySQLite\MySQL\Aggregate;
 use Vectorface\MySQLite\MySQL\Comparison;
 use Vectorface\MySQLite\MySQL\DateTime;
 use Vectorface\MySQLite\MySQL\Flow;
+use Vectorface\MySQLite\MySQL\Locking;
 use Vectorface\MySQLite\MySQL\Numeric;
 use Vectorface\MySQLite\MySQL\StringFunctions;
 
@@ -18,6 +20,9 @@ use Vectorface\MySQLite\MySQL\StringFunctions;
  * Provides some compatibility functions, allowing SQLite to mimic some MySQL functions.
  *
  * All public methods starting with a mysql_ will be registered by the addFunctions method.
+ *
+ * A method whose first parameter is typed with a class (e.g. UserLocks) receives per-connection state: createFunctions
+ * creates one instance of that class per PDO connection and passes it ahead of the SQL arguments.
  */
 class MySQLite
 {
@@ -28,6 +33,7 @@ class MySQLite
     use Comparison;
     use DateTime;
     use Flow;
+    use Locking;
     use Numeric;
     use StringFunctions;
 
@@ -59,8 +65,9 @@ class MySQLite
             throw new InvalidArgumentException('Expecting a PDO instance using the SQLite driver');
         }
 
+        $state = []; /* Per-connection state objects, shared by all functions registered on this PDO. */
         foreach (static::getPublicMethodData() as $method => $paramCount) {
-            static::registerMethod($pdo, $method, $paramCount, $fnList);
+            static::registerMethod($pdo, $method, $paramCount, $fnList, $state);
         }
 
         return $pdo;
@@ -82,10 +89,25 @@ class MySQLite
                 continue;
             }
 
-            $data[$method->name] = $method->getNumberOfRequiredParameters();
+            /* Per-connection state is supplied by createFunctions, not by SQL, so it isn't counted. */
+            $stateParams = static::getStateClass($method) === null ? 0 : 1;
+            $data[$method->name] = $method->getNumberOfRequiredParameters() - $stateParams;
         }
 
         return $data;
+    }
+
+    /**
+     * Get the class of per-connection state a method takes as its first parameter, if any.
+     *
+     * @param ReflectionMethod $method The method to inspect.
+     * @return string|null The class name, or null if the method takes no per-connection state.
+     */
+    protected static function getStateClass(ReflectionMethod $method)
+    {
+        $params = $method->getParameters();
+        $type = $params ? $params[0]->getType() : null;
+        return $type instanceof ReflectionNamedType && !$type->isBuiltin() ? $type->getName() : null;
     }
 
     /**
@@ -95,9 +117,10 @@ class MySQLite
      * @param string $method The internal method name.
      * @param int $paramCount The suggested parameter count.
      * @param string[] $fnList A list of functions to create on the SQLite database, or empty for all.
+     * @param object[] &$state Per-connection state objects for this PDO, keyed by class name.
      * @return bool Returns true if the method was registed. False otherwise.
      */
-    protected static function registerMethod(PDO &$pdo, $method, $paramCount, ?array $fnList = null)
+    protected static function registerMethod(PDO &$pdo, $method, $paramCount, ?array $fnList = null, array &$state = [])
     {
         $function = substr($method, 6); /* Strip 'mysql_' prefix to get the function name. */
 
@@ -110,9 +133,18 @@ class MySQLite
             ? [$pdo, 'createFunction']
             : [$pdo, 'sqliteCreateFunction'];
 
-        if ($paramCount) {
-            return $createFunction($function, [__CLASS__, $method], $paramCount);
+        $callback = [__CLASS__, $method];
+        $stateClass = static::getStateClass(new ReflectionMethod(__CLASS__, $method));
+        if ($stateClass !== null) {
+            /* The closure must not capture $pdo: the PDO holds the closure, and the state should die with the PDO. */
+            $instance = $state[$stateClass] ??= new $stateClass();
+            $target = $callback;
+            $callback = fn(...$args) => $target($instance, ...$args);
         }
-        return $createFunction($function, [__CLASS__, $method]);
+
+        if ($paramCount) {
+            return $createFunction($function, $callback, $paramCount);
+        }
+        return $createFunction($function, $callback);
     }
 }
