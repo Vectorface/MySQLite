@@ -58,4 +58,26 @@ trait StringFunctions
     {
         return soundex($str);
     }
+
+    /**
+     * RIGHT - Return the rightmost $len characters of a string
+     *
+     * @param string $str The string.
+     * @param int $len The number of characters to return.
+     * @return string|null The rightmost characters, an empty string if $len is not positive, or NULL if either
+     *     argument is NULL.
+     */
+    public static function mysql_right($str, $len)
+    {
+        if ($str === null || $len === null) {
+            return null;
+        }
+
+        $str = (string)$str;
+        $len = (int)round((float)$len);
+        if ($len <= 0) {
+            return '';
+        }
+        return function_exists('mb_substr') ? mb_substr($str, -$len, null, 'UTF-8') : substr($str, -$len);
+    }
 }

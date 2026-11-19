@@ -183,4 +183,100 @@ class MySQLiteTest extends TestCase
     {
         $this->assertEquals("F000", MySQLite::mysql_soundex("foo"));
     }
+
+    public function testYear()
+    {
+        $this->assertSame(1987, MySQLite::mysql_year('1987-01-01'));
+        $this->assertSame(2010, MySQLite::mysql_year('2010-11-30 12:34:56'));
+        $this->assertSame(2010, MySQLite::mysql_year('2010-00-00'), "Incomplete dates are allowed");
+        $this->assertSame(0, MySQLite::mysql_year('0000-00-00'));
+        $this->assertNull(MySQLite::mysql_year('2010-02-30'));
+        $this->assertNull(MySQLite::mysql_year('not a date'));
+        $this->assertNull(MySQLite::mysql_year(null));
+
+        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        MySQLite::createFunctions($pdo);
+        $this->assertEquals(2014, $pdo->query("SELECT YEAR('2014-06-15')")->fetch(PDO::FETCH_COLUMN));
+    }
+
+    public function testDatediff()
+    {
+        /* Examples from the MySQL manual */
+        $this->assertSame(1, MySQLite::mysql_datediff('2007-12-31 23:59:59', '2007-12-30'));
+        $this->assertSame(-31, MySQLite::mysql_datediff('2010-11-30 23:59:59', '2010-12-31'));
+
+        $this->assertSame(2, MySQLite::mysql_datediff('2024-03-01', '2024-02-28'), "Leap day is counted");
+        $this->assertSame(365242, MySQLite::mysql_datediff('2000-01-01', '1000-01-01'));
+        $this->assertSame(0, MySQLite::mysql_datediff('2010-01-01 00:00:00', '2010-01-01 23:59:59'));
+        $this->assertNull(MySQLite::mysql_datediff('2010-02-30', '2010-01-01'));
+        $this->assertNull(MySQLite::mysql_datediff('0000-00-00', '2010-01-01'));
+        $this->assertNull(MySQLite::mysql_datediff(null, '2010-01-01'));
+        $this->assertNull(MySQLite::mysql_datediff('2010-01-01', 'not a date'));
+
+        $timezone = date_default_timezone_get();
+        try {
+            date_default_timezone_set('America/New_York');
+            $this->assertSame(1, MySQLite::mysql_datediff('2024-03-11', '2024-03-10'), "DST doesn't shift days");
+        } finally {
+            date_default_timezone_set($timezone);
+        }
+
+        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        MySQLite::createFunctions($pdo);
+        $this->assertEquals(-31, $pdo->query("SELECT DATEDIFF('2010-11-30', '2010-12-31')")->fetch(PDO::FETCH_COLUMN));
+    }
+
+    public function testTimediff()
+    {
+        /* Examples from the MySQL manual */
+        $this->assertSame(
+            '-00:00:00.000001',
+            MySQLite::mysql_timediff('2000:01:01 00:00:00', '2000:01:01 00:00:00.000001')
+        );
+        $this->assertSame(
+            '46:58:57.999999',
+            MySQLite::mysql_timediff('2008-12-31 23:59:59.000001', '2008-12-30 01:01:01.000002')
+        );
+
+        /* Times */
+        $this->assertSame('00:29:45', MySQLite::mysql_timediff('10:00:00', '09:30:15'));
+        $this->assertSame('-26:00:00', MySQLite::mysql_timediff('-1 01:00:00', '01:00:00'));
+        $this->assertSame('25:00:00', MySQLite::mysql_timediff('1 00:00:00', '-1:00'));
+        $this->assertSame('01:00:00.500000', MySQLite::mysql_timediff('10:00:00.5', '09:00:00'));
+
+        /* Results are clamped to MySQL's TIME range */
+        $this->assertSame('838:59:59', MySQLite::mysql_timediff('2010-01-01 00:00:00', '2000-01-01 00:00:00'));
+        $this->assertSame('-838:59:59', MySQLite::mysql_timediff('2000-01-01', '2010-01-01'));
+
+        /* Invalid or mismatched arguments */
+        $this->assertNull(MySQLite::mysql_timediff('2010-01-01 00:00:00', '10:00:00'));
+        $this->assertNull(MySQLite::mysql_timediff('10:00:00', '2010-01-01 00:00:00'));
+        $this->assertNull(MySQLite::mysql_timediff('10:61:00', '10:00:00'));
+        $this->assertNull(MySQLite::mysql_timediff('2010-02-30 00:00:00', '2010-01-01 00:00:00'));
+        $this->assertNull(MySQLite::mysql_timediff(null, '10:00:00'));
+
+        /* SQLite 3.43+ has its own timediff() with a different format; ours must replace it. */
+        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        MySQLite::createFunctions($pdo);
+        $this->assertEquals(
+            '24:00:01',
+            $pdo->query("SELECT TIMEDIFF('2010-01-02 00:00:01', '2010-01-01')")->fetch(PDO::FETCH_COLUMN)
+        );
+    }
+
+    public function testRight()
+    {
+        $this->assertSame('rbar', MySQLite::mysql_right('foobarbar', 4));
+        $this->assertSame('abc', MySQLite::mysql_right('abc', 10));
+        $this->assertSame('', MySQLite::mysql_right('abc', 0));
+        $this->assertSame('', MySQLite::mysql_right('abc', -1));
+        $this->assertSame('ïve', MySQLite::mysql_right('naïve', 3), "Counts characters, not bytes");
+        $this->assertSame('23', MySQLite::mysql_right(123, 2));
+        $this->assertNull(MySQLite::mysql_right(null, 1));
+        $this->assertNull(MySQLite::mysql_right('abc', null));
+
+        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        MySQLite::createFunctions($pdo);
+        $this->assertEquals('rbar', $pdo->query("SELECT RIGHT('foobarbar', 4)")->fetch(PDO::FETCH_COLUMN));
+    }
 }
