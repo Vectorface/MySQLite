@@ -36,31 +36,50 @@ trait DateTime
      * TO_DAYS - Return the date argument converted to days
      *
      * @param string $date A date to be converted to days.
-     * @return int The date converted to a number of days since year 0.
+     * @return int|null The date converted to a number of days since year 0, or NULL if the date is NULL or invalid.
      */
     public static function mysql_to_days($date)
     {
-        $timestamp = strtotime($date);
+        $parts = static::parseDateTime($date);
 
-        /* Add the date's own UTC offset so that local midnight lands on a whole day, whatever the time zone. */
-        return intval(719528 + (($timestamp + (int)date("Z", $timestamp)) / (60 * 60 * 24)));
+        /* MySQL accepts year 0 here, and doesn't treat it as a leap year, just like year 1. */
+        if ($parts === null || !checkdate($parts['month'], $parts['day'], max($parts['year'], 1))) {
+            return null;
+        }
+
+        /* MySQL's own day number calculation (calc_daynr), so results match MySQL's exactly. */
+        [$year, $month] = [$parts['year'], $parts['month']];
+        $days = 365 * $year + 31 * ($month - 1) + $parts['day'];
+        if ($month <= 2) {
+            $year--;
+        } else {
+            $days -= intdiv($month * 4 + 23, 10);
+        }
+        return $days + intdiv($year, 4) - intdiv((intdiv($year, 100) + 1) * 3, 4);
     }
 
     /**
      * UNIX_TIMESTAMP - Return a UNIX timestamp
      *
      * @param string $date The date to be converted to a unix timestamp. Defaults to the current date/time.
-     * @return int The number of seconds since the unix epoch.
+     * @return int|null The number of seconds since the unix epoch, 0 if the date is out of range (including zero
+     *     dates), or NULL if the date is NULL or invalid.
      */
     public static function mysql_unix_timestamp($date = null)
     {
-        if (!isset($date)) {
+        if (func_num_args() === 0) {
             return time();
-        } elseif (count_chars(str_replace([":", "-", " "], "", $date), 3) === "0") {
-            return 0; /* MySQL's implementation returns zero for 0000-00-00 00:00:00 and similar */
+        } elseif ($date === null) {
+            return null;
         }
 
-        return strtotime($date);
+        $timestamp = strtotime($date);
+        if ($timestamp === false) {
+            return null;
+        }
+
+        /* Like MySQL, dates outside the TIMESTAMP range ('1970-01-01 00:00:01' to '3001-01-19 03:14:07' UTC) give 0. */
+        return $timestamp < 1 || $timestamp > 32536782847 ? 0 : $timestamp;
     }
 
     /**

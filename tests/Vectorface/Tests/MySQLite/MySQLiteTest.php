@@ -82,6 +82,31 @@ class MySQLiteTest extends TestCase
     }
 
     /**
+     * Like MySQL, TO_DAYS and UNIX_TIMESTAMP give NULL for NULL and invalid dates, and UNIX_TIMESTAMP gives 0 when out
+     * of range.
+     */
+    public function testToDaysAndUnixTimestampEdgeCases()
+    {
+        $this->assertSame(1, MySQLite::mysql_to_days("0000-01-01"));
+        $this->assertSame(733321, MySQLite::mysql_to_days("2007-10-07"));
+        $this->assertNull(MySQLite::mysql_to_days(null));
+        $this->assertNull(MySQLite::mysql_to_days("not a date"));
+        $this->assertNull(MySQLite::mysql_to_days("0000-00-00"));
+        $this->assertNull(MySQLite::mysql_to_days("2010-02-30"));
+
+        $this->assertNull(MySQLite::mysql_unix_timestamp(null));
+        $this->assertNull(MySQLite::mysql_unix_timestamp("not a date"));
+        $this->assertSame(0, MySQLite::mysql_unix_timestamp("1960-01-01 00:00:00"));
+        $this->assertSame(0, MySQLite::mysql_unix_timestamp("3100-01-01 00:00:00"));
+
+        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        MySQLite::createFunctions($pdo);
+        $this->assertNull($pdo->query("SELECT TO_DAYS(NULL)")->fetch(PDO::FETCH_COLUMN));
+        $this->assertNull($pdo->query("SELECT UNIX_TIMESTAMP(NULL)")->fetch(PDO::FETCH_COLUMN));
+        $this->assertEqualsWithDelta(time(), $pdo->query("SELECT UNIX_TIMESTAMP()")->fetch(PDO::FETCH_COLUMN), 1);
+    }
+
+    /**
      * Test that createFunctions hooks the functions into a PDO object.
      */
     public function testCreateFunctions()
