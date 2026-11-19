@@ -27,9 +27,6 @@ class MySQLiteTest extends TestCase
      */
     public function testCompatibilityFunctions()
     {
-        /* Aggregate functions */
-        $this->assertEquals(1 | 2 | 4, MySQLite::mysql_bit_or(1, 2, 4));
-
         /* Comparison functions */
         $this->assertEquals(1, MySQLite::mysql_least(1, 2, 3, 4));
         try {
@@ -123,14 +120,14 @@ class MySQLiteTest extends TestCase
 
         $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         try {
-            $pdo->query("SELECT BIT_OR(1, 2)");
-            $this->fail("Attempt to BIT_OR two values is expected to fail before the function is created.");
+            $pdo->query("SELECT BIT_OR(1)");
+            $this->fail("Attempt to BIT_OR is expected to fail before the function is created.");
         } catch (PDOException $e) {
             /* Expected */
         }
 
         $this->assertSame($pdo, MySQLite::createFunctions($pdo));
-        $this->assertEquals(3, $pdo->query("SELECT BIT_OR(1, 2)")->fetch(PDO::FETCH_COLUMN));
+        $this->assertEquals(3, $pdo->query("SELECT BIT_OR(3)")->fetch(PDO::FETCH_COLUMN));
     }
 
     /**
@@ -140,13 +137,60 @@ class MySQLiteTest extends TestCase
     {
         $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         $this->assertSame($pdo, MySQLite::createFunctions($pdo, ['bit_or']));
-        $this->assertEquals(3, $pdo->query("SELECT BIT_OR(1, 2)")->fetch(PDO::FETCH_COLUMN));
+        $this->assertEquals(3, $pdo->query("SELECT BIT_OR(3)")->fetch(PDO::FETCH_COLUMN));
         try {
             $pdo->query("SELECT UNIX_TIMESTAMP()");
             $this->fail("UNIX_TIMESTAMP function is expected not to have been created.");
         } catch (PDOException $e) {
             /* Expected */
         }
+    }
+
+    /**
+     * BIT_OR is an aggregate: it combines a column's values across rows, ignoring NULLs.
+     *
+     * @dataProvider bitOrProvider
+     */
+    public function testBitOr(int $expected, array $values)
+    {
+        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        MySQLite::createFunctions($pdo);
+        $pdo->exec("CREATE TABLE t (v)");
+        $insert = $pdo->prepare("INSERT INTO t (v) VALUES (?)");
+        foreach ($values as $value) {
+            $insert->execute([$value]);
+        }
+
+        $rows = $pdo->query("SELECT BIT_OR(v) FROM t")->fetchAll(PDO::FETCH_COLUMN);
+        $this->assertCount(1, $rows, "An aggregate returns one row");
+        $this->assertEquals($expected, $rows[0]);
+    }
+
+    public static function bitOrProvider(): array
+    {
+        return [
+            'several rows' => [7, [1, 2, 4]],
+            'overlapping bits' => [7, [3, 6, 5]],
+            'NULLs are ignored' => [5, [null, 1, null, 4]],
+            'only NULLs' => [0, [null, null]],
+            'no rows' => [0, []],
+            'numeric strings' => [6, ['2', '4']],
+        ];
+    }
+
+    public function testBitOrGroupBy()
+    {
+        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        MySQLite::createFunctions($pdo);
+        $pdo->exec("CREATE TABLE t (k, v); INSERT INTO t VALUES ('a', 1), ('a', 2), ('b', 8), ('b', 16)");
+
+        $this->assertEquals(
+            ['a' => 3, 'b' => 24],
+            $pdo->query("SELECT k, BIT_OR(v) FROM t GROUP BY k ORDER BY k")->fetchAll(PDO::FETCH_KEY_PAIR)
+        );
+
+        $this->expectException(PDOException::class);
+        $pdo->query("SELECT BIT_OR(1, 2)"); /* MySQL's BIT_OR takes exactly one argument */
     }
 
     /**
