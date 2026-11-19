@@ -13,11 +13,11 @@ trait Numeric
      * SQRT - Return the square root of the argument
      *
      * @param mixed $value A numeric value for which a square root is to be calculated.
-     * @return float The square root of the given numeric value.
+     * @return float|null The square root of the given numeric value, or NULL if it is NULL or negative.
      */
     public static function mysql_sqrt($value)
     {
-        return sqrt($value);
+        return $value === null || $value < 0 ? null : sqrt($value);
     }
 
     /**

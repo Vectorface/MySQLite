@@ -229,6 +229,54 @@ class MySQLiteTest extends TestCase
         $this->assertEquals("F000", MySQLite::mysql_soundex("foo"));
     }
 
+    /**
+     * Test NULL handling, which follows MySQL: mostly NULL in, NULL out.
+     *
+     * @dataProvider nullArgumentProvider
+     */
+    public function testNullArguments($expected, string $function, array $args)
+    {
+        $this->assertFunctionResult($expected, $function, $args);
+    }
+
+    public static function nullArgumentProvider(): array
+    {
+        return [
+            'CONCAT with a NULL' => [null, 'concat', ['a', null, 'b']],
+            'CONCAT_WS skips NULLs' => ['a|b', 'concat_ws', ['|', 'a', null, 'b']],
+            'CONCAT_WS keeps empty strings' => ['a||b', 'concat_ws', ['|', 'a', '', 'b']],
+            'CONCAT_WS with NULL separator' => [null, 'concat_ws', [null, 'a', 'b']],
+            'FORMAT with NULL number' => [null, 'format', [null, 2]],
+            'FORMAT with NULL decimals' => [null, 'format', [1.5, null]],
+            'SOUNDEX of NULL' => [null, 'soundex', [null]],
+            'SQRT of NULL' => [null, 'sqrt', [null]],
+            'SQRT of a negative number' => [null, 'sqrt', [-16]],
+        ];
+    }
+
+    /**
+     * Assert that a function gives the expected result both when called directly and when called through SQLite.
+     *
+     * @param mixed $expected The expected result. Compared loosely through SQLite, as PHP 8.0 returns strings.
+     * @param string $function The function name, e.g. 'concat'.
+     * @param array $args The function arguments.
+     */
+    private function assertFunctionResult($expected, string $function, array $args)
+    {
+        $this->assertSame($expected, MySQLite::{"mysql_$function"}(...$args), "Direct call to $function");
+
+        $pdo = $this->getPdo("sqlite::memory:", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        MySQLite::createFunctions($pdo);
+        $stmt = $pdo->prepare(sprintf("SELECT %s(%s)", $function, implode(", ", array_fill(0, count($args), "?"))));
+        $stmt->execute($args);
+        $actual = $stmt->fetch(PDO::FETCH_COLUMN);
+        if ($expected === null) {
+            $this->assertNull($actual, "SQL call to $function");
+        } else {
+            $this->assertEquals($expected, $actual, "SQL call to $function");
+        }
+    }
+
     public function testYear()
     {
         $this->assertSame(1987, MySQLite::mysql_year('1987-01-01'));

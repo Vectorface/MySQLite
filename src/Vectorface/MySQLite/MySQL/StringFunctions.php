@@ -11,28 +11,29 @@ trait StringFunctions
 {
     /**
      * Concat - Return a concatenated string of all function arguments provided
-     * @return string $str concatenated string
+     * @return string|null $str concatenated string, or NULL if any argument is NULL
      */
     public static function mysql_concat()
     {
-        $str = '';
-        foreach (func_get_args() as $arg) {
-            $str .= $arg;
-        }
-        return $str;
+        $args = func_get_args();
+        return in_array(null, $args, true) ? null : implode('', $args);
     }
 
     /**
      * Concat_ws - Return a concatenated string of all function arguments provided
-     * it will use the first argument as the separator
-     * @return string $str concatenated string with separator
+     * it will use the first argument as the separator. NULL arguments after the separator are skipped.
+     * @return string|null $str concatenated string with separator, or NULL if the separator is NULL
      */
     public static function mysql_concat_ws()
     {
         $args = func_get_args();
-        $seperator = array_shift($args);
-        $str = implode($seperator, $args);
-        return $str;
+        $separator = array_shift($args);
+        if ($separator === null) {
+            return null;
+        }
+        return implode($separator, array_filter($args, function ($arg) {
+            return $arg !== null;
+        }));
     }
 
 
@@ -40,22 +41,25 @@ trait StringFunctions
      * Format - Return a formated number string based on the arguments provided
      * Ignoring the functionality of a third argument, locale
      * https://dev.mysql.com/doc/refman/8.0/en/string-functions.html#function_format
-     * @return string $str formatted as per arg
+     * @return string|null $str formatted as per arg, or NULL if the number or decimals is NULL
      */
     public static function mysql_format()
     {
         $args = func_get_args();
+        if (in_array(null, array_slice($args, 0, 2), true)) {
+            return null;
+        }
         $number = isset($args[0]) ? $args[0] : 0.0;
         $decimals = isset($args[1]) ? $args[1] : 0;
         return number_format($number, $decimals);
     }
 
     /**
-     * Get the soundex value of a given string
+     * Get the soundex value of a given string, or NULL if the string is NULL
      */
-    public static function mysql_soundex(string $str): string
+    public static function mysql_soundex(?string $str): ?string
     {
-        return soundex($str);
+        return $str === null ? null : soundex($str);
     }
 
     /**
