@@ -57,7 +57,7 @@ class MySQLite
      * Add MySQLite compatibility functions to a PDO object.
      *
      * @param PDO $pdo A PDO instance to which the MySQLite compatibility functions should be added.
-     * @param string[] $fnList A list of functions to create on the SQLite database. (Omit to create all.)
+     * @param string[] $fnList A list of functions to create on the SQLite database, in any case. (Omit to create all.)
      * @return PDO Returns the PDO instance passed in to the function.
      */
     public static function createFunctions(PDO $pdo, ?array $fnList = null)
@@ -65,6 +65,9 @@ class MySQLite
         if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite') {
             throw new InvalidArgumentException('Expecting a PDO instance using the SQLite driver');
         }
+
+        /* SQL function names are case-insensitive, and ours are lower case. */
+        $fnList = $fnList === null ? null : array_map('strtolower', $fnList);
 
         $state = []; /* Per-connection state objects, shared by all functions registered on this PDO. */
         foreach (static::getPublicMethodData() as $method => $paramCount) {

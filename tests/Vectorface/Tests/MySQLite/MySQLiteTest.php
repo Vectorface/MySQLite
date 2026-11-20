@@ -92,16 +92,28 @@ class MySQLiteTest extends TestCase
     }
 
     /**
-     * Test that createFunctions is able to create only a limited subset of supported functions.
+     * Test that createFunctions is able to create only a limited subset of supported functions, named in any case.
+     *
+     * @dataProvider selectiveFunctionListProvider
      */
-    public function testSelectiveCreateFunctions()
+    public function testSelectiveCreateFunctions(array $fnList)
     {
         $pdo = $this->getPdo();
-        $this->assertSame($pdo, MySQLite::createFunctions($pdo, ['bit_or']));
+        $this->assertSame($pdo, MySQLite::createFunctions($pdo, $fnList));
         $this->assertEquals(3, $pdo->query("SELECT BIT_OR(3)")->fetch(PDO::FETCH_COLUMN));
+        $this->assertEquals(2, $pdo->query("SELECT LEAST(3, 2)")->fetch(PDO::FETCH_COLUMN));
 
         $this->expectException(PDOException::class);
         $pdo->query("SELECT UNIX_TIMESTAMP()");
+    }
+
+    public static function selectiveFunctionListProvider(): array
+    {
+        return [
+            'lower case' => [['bit_or', 'least']],
+            'upper case' => [['BIT_OR', 'LEAST']],
+            'mixed case' => [['Bit_Or', 'Least']],
+        ];
     }
 
     /**
