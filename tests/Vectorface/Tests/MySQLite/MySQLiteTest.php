@@ -82,6 +82,15 @@ class MySQLiteTest extends TestCase
     }
 
     /**
+     * The PDO doesn't need to be a variable, so the README's one-liner works without a notice.
+     */
+    public function testCreateFunctionsOneLiner()
+    {
+        $pdo = MySQLite::createFunctions($this->getPdo());
+        $this->assertEquals(3, $pdo->query("SELECT BIT_OR(3)")->fetch(PDO::FETCH_COLUMN));
+    }
+
+    /**
      * Test that createFunctions is able to create only a limited subset of supported functions.
      */
     public function testSelectiveCreateFunctions()
