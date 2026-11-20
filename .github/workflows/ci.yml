@@ -25,3 +25,21 @@ jobs:
 
       - name: PHPUnit Tests
         run: vendor/bin/phpunit
+
+  code-style:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress
+
+      - name: PHP_CodeSniffer
+        run: vendor/bin/phpcs
