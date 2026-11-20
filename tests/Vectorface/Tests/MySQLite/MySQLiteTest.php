@@ -228,7 +228,20 @@ class MySQLiteTest extends TestCase
     public static function comparisonFlowAndNumericProvider(): array
     {
         return [
-            'LEAST' => [1, 'least', [3, 1, 4, 2]],
+            /* LEAST; results match MariaDB 10.11 and 11.4 */
+            'LEAST of integers' => [1, 'least', [3, 1, 4, 2]],
+            'LEAST (MySQL manual)' => [0, 'least', [2, 0]],
+            'LEAST of floats (MySQL manual)' => [3.0, 'least', [34.0, 3.0, 5.0, 767.0]],
+            'LEAST of strings (MySQL manual)' => ['A', 'least', ['B', 'A', 'C']],
+            'LEAST of integer and float' => [2.5, 'least', [2.5, 10]],
+            'LEAST of NULL' => [null, 'least', [1, null, 3]],
+            'LEAST compares numeric strings as strings' => ['10', 'least', ['10', '9']],
+            'LEAST ignores case' => ['a', 'least', ['B', 'a', 'C']],
+            'LEAST ignores trailing spaces' => ['a ', 'least', ['a ', 'a']],
+            'LEAST returns the first of equal strings' => ['A', 'least', ['A', 'a']],
+            'LEAST compares numbers and strings as numbers' => [9, 'least', [10, '9']],
+            'LEAST reads leading numbers from strings' => [9.5, 'least', [10, '9.5abc']],
+            'LEAST reads other strings as zero' => [0, 'least', ['abc', 5]],
             'IF true' => ['foo', 'if', [true, 'foo', 'bar']],
             'IF false' => ['bar', 'if', [false, 'foo', 'bar']],
             'IF of NULL' => ['bar', 'if', [null, 'foo', 'bar']],
@@ -249,10 +262,23 @@ class MySQLiteTest extends TestCase
         ];
     }
 
-    public function testLeastRequiresArguments()
+    /**
+     * Like MySQL, LEAST needs at least two arguments.
+     *
+     * @dataProvider leastArgumentCountProvider
+     */
+    public function testLeastRequiresTwoArguments(array $args)
     {
         $this->expectException(InvalidArgumentException::class);
-        MySQLite::mysql_least();
+        MySQLite::mysql_least(...$args);
+    }
+
+    public static function leastArgumentCountProvider(): array
+    {
+        return [
+            'no arguments' => [[]],
+            'one argument' => [[1]],
+        ];
     }
 
     public function testRand()
