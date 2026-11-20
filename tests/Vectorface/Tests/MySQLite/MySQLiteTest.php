@@ -8,6 +8,7 @@ use Pdo\Sqlite;
 use PDOException;
 use PHPUnit\Framework\TestCase;
 use Vectorface\MySQLite\MySQLite;
+use Vectorface\Tests\MySQLite\Util\CustomMySQLite;
 use Vectorface\Tests\MySQLite\Util\FakePDO;
 
 /**
@@ -109,6 +110,29 @@ class MySQLiteTest extends TestCase
     public function testGetFunctionList(string $function)
     {
         $this->assertContains($function, MySQLite::getFunctionList());
+    }
+
+    /**
+     * Subclasses can add scalar and aggregate functions, and keep the inherited ones.
+     */
+    public function testSubclassFunctions()
+    {
+        $pdo = CustomMySQLite::createFunctions($this->getPdo());
+        $pdo->exec("CREATE TABLE t (v); INSERT INTO t VALUES (1), (2), (4)");
+
+        $this->assertEquals('foobar', $pdo->query("SELECT FOO('bar')")->fetch(PDO::FETCH_COLUMN));
+        $this->assertEquals(7, $pdo->query("SELECT ROW_TOTAL(v) FROM t")->fetch(PDO::FETCH_COLUMN));
+        $this->assertEquals(7, $pdo->query("SELECT BIT_OR(v) FROM t")->fetch(PDO::FETCH_COLUMN));
+
+        $functions = CustomMySQLite::getFunctionList();
+        $this->assertContains('foo', $functions);
+        $this->assertContains('row_total', $functions);
+        $this->assertContains('bit_or', $functions);
+        $this->assertNotContains('not_static', $functions);
+        $this->assertNotContains('foo', MySQLite::getFunctionList());
+
+        $this->expectException(PDOException::class);
+        $pdo->query("SELECT NOT_STATIC()");
     }
 
     public static function functionNameProvider(): array

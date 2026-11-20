@@ -86,10 +86,10 @@ class MySQLite
     {
         $data = [];
 
-        $ref = new ReflectionClass(__CLASS__);
-        $methods = $ref->getMethods(ReflectionMethod::IS_PUBLIC | ReflectionMethod::IS_STATIC);
-        foreach ($methods as $method) {
-            if (strpos($method->name, 'mysql_') !== 0) {
+        /* Use the called class so subclasses can add functions. getMethods() ORs its filters, so check static here. */
+        $ref = new ReflectionClass(static::class);
+        foreach ($ref->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
+            if (!$method->isStatic() || strpos($method->name, 'mysql_') !== 0) {
                 continue;
             }
 
@@ -137,8 +137,8 @@ class MySQLite
             ? [$pdo, 'createFunction']
             : [$pdo, 'sqliteCreateFunction'];
 
-        $callback = [__CLASS__, $method];
-        $stateClass = static::getStateClass(new ReflectionMethod(__CLASS__, $method));
+        $callback = [static::class, $method];
+        $stateClass = static::getStateClass(new ReflectionMethod(static::class, $method));
         if ($stateClass !== null) {
             /* The closure must not capture $pdo: the PDO holds the closure, and the state should die with the PDO. */
             $instance = $state[$stateClass] ??= new $stateClass();
@@ -173,6 +173,6 @@ class MySQLite
             ? [$pdo, 'createAggregate']
             : [$pdo, 'sqliteCreateAggregate'];
 
-        return $createAggregate($function, [__CLASS__, $step], [__CLASS__, $final], $paramCount);
+        return $createAggregate($function, [static::class, $step], [static::class, $final], $paramCount);
     }
 }
