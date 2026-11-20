@@ -156,7 +156,7 @@ class MySQLiteTest extends TestCase
     public static function functionNameProvider(): array
     {
         $functions = [
-            'bit_or', 'least', 'if', 'sqrt', 'rand', 'now', 'curdate', 'to_days', 'unix_timestamp', 'year',
+            'bit_or', 'least', 'if', 'sqrt', 'rand', 'now', 'curdate', 'to_days', 'unix_timestamp', 'year', 'month',
             'datediff', 'timediff', 'concat', 'concat_ws', 'format', 'soundex', 'right',
         ];
         return array_combine($functions, array_map(function ($function) {
@@ -361,9 +361,31 @@ class MySQLiteTest extends TestCase
             'YEAR of compact datetime' => [2010, 'year', ['20101130123456']],
             'YEAR of incomplete date' => [2010, 'year', ['2010-00-00']],
             'YEAR of zero date' => [0, 'year', ['0000-00-00']],
+            'YEAR of year 0' => [0, 'year', ['0000-01-01']],
             'YEAR of invalid date' => [null, 'year', ['2010-02-30']],
+            'YEAR of invalid month with zero day' => [null, 'year', ['2010-13-00']],
+            'YEAR of invalid day with zero month' => [null, 'year', ['2010-00-32']],
             'YEAR of garbage' => [null, 'year', ['not a date']],
             'YEAR of NULL' => [null, 'year', [null]],
+
+            /* MONTH; results match MariaDB 10.11 */
+            'MONTH of date' => [11, 'month', ['2010-11-30']],
+            'MONTH of datetime' => [11, 'month', ['2010-11-30 12:34:56']],
+            'MONTH of compact date' => [11, 'month', ['20101130']],
+            'MONTH of compact number' => [11, 'month', [20101130]],
+            'MONTH of unpadded date' => [1, 'month', ['2010-1-5']],
+            'MONTH of incomplete date (MySQL manual)' => [0, 'month', ['2008-00-00']],
+            'MONTH of zero date' => [0, 'month', ['0000-00-00']],
+            'MONTH of zero day' => [2, 'month', ['2010-02-00']],
+            'MONTH of year 0' => [1, 'month', ['0000-01-01']],
+            'MONTH of leap day' => [2, 'month', ['2012-02-29']],
+            'MONTH of invalid leap day' => [null, 'month', ['2010-02-29']],
+            'MONTH of leap day in year 0' => [null, 'month', ['0000-02-29']],
+            'MONTH of invalid date' => [null, 'month', ['2010-04-31']],
+            'MONTH of invalid month' => [null, 'month', ['2010-13-01']],
+            'MONTH of invalid time' => [null, 'month', ['2010-11-30 25:00:00']],
+            'MONTH of garbage' => [null, 'month', ['not a date']],
+            'MONTH of NULL' => [null, 'month', [null]],
 
             /* DATEDIFF */
             'DATEDIFF ignores time (MySQL manual)' => [1, 'datediff', ['2007-12-31 23:59:59', '2007-12-30']],

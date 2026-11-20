@@ -92,14 +92,23 @@ trait DateTime
      */
     public static function mysql_year($date)
     {
-        $parts = static::parseDateTime($date);
-        if ($parts === null) {
-            return null;
-        }
-        if ($parts['month'] !== 0 && $parts['day'] !== 0 && !static::isCompleteDate($parts)) {
-            return null; /* Dates like '2010-02-30' are invalid, but zero months and days are allowed. */
-        }
-        return $parts['year'];
+        $parts = static::parseIncompleteDate($date);
+        return $parts === null ? null : $parts['year'];
+    }
+
+    /**
+     * MONTH - Return the month of a date
+     *
+     * Like MySQL, incomplete dates such as '2010-00-00' are accepted.
+     *
+     * @param string $date A date or datetime, e.g. '2010-11-30' or '2010-11-30 12:34:56'.
+     * @return int|null The month, from 1 to 12, or 0 for dates with a zero month like '2008-00-00'. NULL if the
+     *     date is NULL or invalid.
+     */
+    public static function mysql_month($date)
+    {
+        $parts = static::parseIncompleteDate($date);
+        return $parts === null ? null : $parts['month'];
     }
 
     /**
@@ -228,6 +237,27 @@ trait DateTime
     private static function parseFraction($digits)
     {
         return (int)str_pad(substr($digits, 0, 6), 6, '0');
+    }
+
+    /**
+     * Parse a date that may have zero parts, like '2010-00-00' or '0000-00-00', which some MySQL functions accept.
+     *
+     * Year 0 is allowed, and isn't a leap year. Parts that are given must still be valid, so '2010-02-30' and
+     * '2010-13-00' are rejected.
+     *
+     * @param mixed $value The value to parse.
+     * @return array|null Parts as from parseDateTime, or null if the value is not a valid date.
+     */
+    private static function parseIncompleteDate($value)
+    {
+        $parts = static::parseDateTime($value);
+        if ($parts === null || $parts['month'] > 12 || $parts['day'] > 31) {
+            return null;
+        }
+        if ($parts['month'] && $parts['day'] && !checkdate($parts['month'], $parts['day'], max($parts['year'], 1))) {
+            return null;
+        }
+        return $parts;
     }
 
     /**
