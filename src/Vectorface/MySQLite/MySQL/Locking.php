@@ -7,20 +7,19 @@ use Vectorface\MySQLite\UserLocks;
 /**
  * Provides Locking MySQL compatibility functions for SQLite.
  *
- * These functions act on behalf of a connection, so each takes that connection's UserLocks as its first parameter.
- * MySQLite::createFunctions supplies it; SQL callers pass only the MySQL arguments.
+ * Each takes the connection's UserLocks first, supplied by MySQLite::createFunctions.
  *
  * https://dev.mysql.com/doc/refman/8.0/en/locking-functions.html
  */
 trait Locking
 {
     /**
-     * GET_LOCK - Acquire a named lock, waiting up to $timeout seconds.
+     * GET_LOCK - Acquire a named lock
      *
      * @param UserLocks $locks The calling connection's locks.
      * @param string $name The lock name.
-     * @param float $timeout Seconds to wait for the lock. Negative values wait forever.
-     * @return int 1 if the lock was acquired, 0 if the attempt timed out.
+     * @param float $timeout Seconds to wait, or negative to wait forever.
+     * @return int 1 if acquired, 0 if timed out.
      */
     public static function mysql_get_lock(UserLocks $locks, $name, $timeout)
     {
@@ -28,11 +27,11 @@ trait Locking
     }
 
     /**
-     * RELEASE_LOCK - Release a named lock held by this connection.
+     * RELEASE_LOCK - Release a named lock
      *
      * @param UserLocks $locks The calling connection's locks.
      * @param string $name The lock name.
-     * @return int|null 1 if released, 0 if another connection holds the lock, NULL if nobody holds it.
+     * @return int|null 1 if released, 0 if held by another connection, NULL if not held.
      */
     public static function mysql_release_lock(UserLocks $locks, $name)
     {
@@ -41,7 +40,7 @@ trait Locking
     }
 
     /**
-     * RELEASE_ALL_LOCKS - Release all named locks held by this connection.
+     * RELEASE_ALL_LOCKS - Release all of this connection's named locks
      *
      * @param UserLocks $locks The calling connection's locks.
      * @return int The number of locks released.
@@ -52,11 +51,11 @@ trait Locking
     }
 
     /**
-     * IS_FREE_LOCK - Check whether a named lock is free.
+     * IS_FREE_LOCK - Check whether a named lock is free
      *
      * @param UserLocks $locks The calling connection's locks.
      * @param string $name The lock name.
-     * @return int 1 if the lock is free, 0 if any connection holds it.
+     * @return int 1 if free, 0 if held.
      */
     public static function mysql_is_free_lock(UserLocks $locks, $name)
     {

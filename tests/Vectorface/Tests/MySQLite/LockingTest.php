@@ -13,7 +13,7 @@ use Vectorface\MySQLite\UserLocks;
  */
 class LockingTest extends TestCase
 {
-    /** @var string A private lock directory, so tests can't collide with other users of the temp directory. */
+    /** @var string A private lock directory, isolating these tests. */
     private $lockDir;
 
     protected function setUp(): void

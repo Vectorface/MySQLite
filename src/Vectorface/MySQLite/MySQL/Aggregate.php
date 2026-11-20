@@ -5,16 +5,13 @@ namespace Vectorface\MySQLite\MySQL;
 /**
  * Provides Aggregate (Group By) MySQL compatibility functions for SQLite.
  *
- * Aggregates are listed in getAggregateFunctions rather than discovered by their mysql_ prefix, because SQLite needs
- * two callbacks for each: a step called for every row in the group, and a final called once to produce the result.
+ * Aggregates need step and final callbacks, so they're listed in getAggregateFunctions rather than discovered.
  *
  * http://dev.mysql.com/doc/refman/5.7/en/group-by-functions.html
  */
 trait Aggregate
 {
     /**
-     * Get the aggregate functions provided by this trait.
-     *
      * @return array[] Function names mapped to [step method, final method, argument count].
      */
     protected static function getAggregateFunctions()
@@ -25,10 +22,10 @@ trait Aggregate
     }
 
     /**
-     * BIT_OR step - OR one row's value into the running result. NULL values are ignored.
+     * BIT_OR step - OR in one row's value, ignoring NULL.
      *
-     * @param int|null $result The result so far, or NULL before the first non-NULL value.
-     * @param int $rowNumber The row number within the group (unused).
+     * @param int|null $result The result so far, or NULL before the first value.
+     * @param int $rowNumber Unused.
      * @param mixed $value This row's value.
      * @return int|null The updated result.
      */
@@ -41,14 +38,13 @@ trait Aggregate
     }
 
     /**
-     * BIT_OR - Return the bitwise OR of all values in the group, or 0 if there are none.
+     * BIT_OR - Return the bitwise OR of the group's values, or 0 if none
      *
-     * MySQL returns an unsigned 64-bit integer; values with the top bit set come back negative here, because SQLite
-     * integers are signed.
+     * Values with the top bit set come back negative, as SQLite integers are signed.
      *
      * @param int|null $result The result from the last step.
-     * @param int $rowNumber The number of rows in the group (unused).
-     * @return int The bitwise OR of all non-NULL values.
+     * @param int $rowNumber Unused.
+     * @return int
      */
     public static function bitOrFinal($result, $rowNumber)
     {

@@ -12,7 +12,7 @@ use Vectorface\Tests\MySQLite\Util\CustomMySQLite;
 use Vectorface\Tests\MySQLite\Util\FakePDO;
 
 /**
- * Test MySQLite. Function results are grouped by MySQL's function categories, matching the traits in src.
+ * Test MySQLite. Function tests are grouped like the traits in src.
  */
 class MySQLiteTest extends TestCase
 {
@@ -30,10 +30,7 @@ class MySQLiteTest extends TestCase
     }
 
     /**
-     * Assert that a function gives the expected result both when called directly and when called through SQLite.
-     *
-     * Arguments are passed to SQLite as literals rather than bound parameters, which PDO would turn into strings, so
-     * the function receives the same types either way.
+     * Assert a function's result, called directly and through SQLite (with literals, as bound values become strings).
      *
      * @param mixed $expected The expected result. Compared loosely through SQLite, as PHP 8.0 returns strings.
      * @param string $function The function name, e.g. 'concat'.
@@ -89,7 +86,7 @@ class MySQLiteTest extends TestCase
     }
 
     /**
-     * The PDO doesn't need to be a variable, so the README's one-liner works without a notice.
+     * The README's one-liner, passing a non-variable PDO.
      */
     public function testCreateFunctionsOneLiner()
     {
@@ -98,7 +95,7 @@ class MySQLiteTest extends TestCase
     }
 
     /**
-     * Test that createFunctions is able to create only a limited subset of supported functions, named in any case.
+     * createFunctions can create a subset of functions, named in any case.
      *
      * @dataProvider selectiveFunctionListProvider
      */
@@ -131,7 +128,7 @@ class MySQLiteTest extends TestCase
     }
 
     /**
-     * Subclasses can add scalar and aggregate functions, and keep the inherited ones.
+     * Subclasses can add functions, and keep the inherited ones.
      */
     public function testSubclassFunctions()
     {
@@ -169,8 +166,6 @@ class MySQLiteTest extends TestCase
      */
 
     /**
-     * BIT_OR is an aggregate: it combines a column's values across rows, ignoring NULLs.
-     *
      * @dataProvider bitOrProvider
      */
     public function testBitOr(int $expected, array $values)
@@ -228,7 +223,7 @@ class MySQLiteTest extends TestCase
     public static function comparisonFlowAndNumericProvider(): array
     {
         return [
-            /* LEAST; results match MariaDB 10.11 and 11.4 */
+            /* LEAST, as in MariaDB */
             'LEAST of integers' => [1, 'least', [3, 1, 4, 2]],
             'LEAST (MySQL manual)' => [0, 'least', [2, 0]],
             'LEAST of floats (MySQL manual)' => [3.0, 'least', [34.0, 3.0, 5.0, 767.0]],
@@ -263,8 +258,6 @@ class MySQLiteTest extends TestCase
     }
 
     /**
-     * Like MySQL, LEAST needs at least two arguments.
-     *
      * @dataProvider leastArgumentCountProvider
      */
     public function testLeastRequiresTwoArguments(array $args)
@@ -312,7 +305,7 @@ class MySQLiteTest extends TestCase
 
     public static function seededRandProvider(): array
     {
-        /* MySQL's first value for seed 3, from the RAND() example in the MySQL manual. */
+        /* From the MySQL manual's RAND(3) example */
         return [
             'integer seed' => [0.90576975597606, 3],
             'numeric string seed' => [0.90576975597606, '3'],
@@ -368,7 +361,7 @@ class MySQLiteTest extends TestCase
             'YEAR of garbage' => [null, 'year', ['not a date']],
             'YEAR of NULL' => [null, 'year', [null]],
 
-            /* MONTH; results match MariaDB 10.11 */
+            /* MONTH, as in MariaDB */
             'MONTH of date' => [11, 'month', ['2010-11-30']],
             'MONTH of datetime' => [11, 'month', ['2010-11-30 12:34:56']],
             'MONTH of compact date' => [11, 'month', ['20101130']],
@@ -399,7 +392,7 @@ class MySQLiteTest extends TestCase
             'DATEDIFF of NULL' => [null, 'datediff', [null, '2010-01-01']],
             'DATEDIFF of garbage' => [null, 'datediff', ['2010-01-01', 'not a date']],
 
-            /* TIMEDIFF; the SQL calls also check that ours replaces SQLite 3.43+'s own timediff() */
+            /* TIMEDIFF; SQL calls also check ours overrides SQLite 3.43+'s timediff() */
             'TIMEDIFF fractional (MySQL manual)' => [
                 '-00:00:00.000001', 'timediff', ['2000:01:01 00:00:00', '2000:01:01 00:00:00.000001'],
             ],
@@ -422,7 +415,7 @@ class MySQLiteTest extends TestCase
     }
 
     /**
-     * Date functions must not depend on PHP's time zone, including zones east of UTC and across daylight saving time.
+     * Date functions must ignore PHP's time zone.
      *
      * @dataProvider timeZoneProvider
      */
@@ -456,8 +449,7 @@ class MySQLiteTest extends TestCase
     }
 
     /**
-     * Functions of the current time. Each result must match the time just before or just after the call, so a clock
-     * tick mid-test can't cause a failure.
+     * Current time functions. Results may match the time before or after the call, in case the clock ticks.
      */
     public function testCurrentTimeFunctions()
     {

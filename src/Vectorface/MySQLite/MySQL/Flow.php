@@ -12,17 +12,15 @@ trait Flow
     /**
      * IF - If/else construct
      *
-     * Like MySQL, the condition is true if it is not NULL and not 0. Strings are read as numbers, so 'abc' and '0.0'
-     * are false, while '1abc' and '0.5' are true.
+     * Like MySQL, the condition is true if non-zero and not NULL, reading strings as numbers ('abc' is false).
      *
-     * @param mixed $condition The condition which determines which result should be returned.
-     * @param mixed $onTrue The result to be returned if the condition is true.
-     * @param mixed $onFalse The result to be returned if the condition is false.
-     * @return mixed Either the onTrue or onFalse result is returned, depending on the value of the condition.
+     * @param mixed $condition The condition.
+     * @param mixed $onTrue The result if the condition is true.
+     * @param mixed $onFalse The result if the condition is false.
+     * @return mixed $onTrue or $onFalse.
      */
     public static function mysql_if($condition, $onTrue, $onFalse)
     {
-        /* Casting a string to float reads its leading number, if any, as MySQL does. */
         return $condition !== null && (float)$condition != 0 ? $onTrue : $onFalse;
     }
 }

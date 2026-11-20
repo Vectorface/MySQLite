@@ -23,10 +23,8 @@ trait Numeric
     /**
      * RAND - Return a random floating-point value v in the range 0 <= v < 1.0
      *
-     * RAND(N) uses MySQL's own generator seeded with N, so it gives the same value as MySQL for that seed. MySQL seeds
-     * a constant N once per statement, so later rows continue its sequence; SQLite doesn't tell functions when a
-     * statement starts, so here every call gives the sequence's first value. That matches MySQL for a single row, or
-     * when N varies by row (e.g. a column), which MySQL reseeds on every call.
+     * RAND(N) gives MySQL's first value for seed N. Unlike MySQL, a constant N doesn't continue its sequence on later
+     * rows.
      *
      * @param int $seed An optional seed.
      * @return float
@@ -37,7 +35,7 @@ trait Numeric
             return mt_rand() / (mt_getrandmax() + 1);
         }
 
-        /* MySQL's randominit() and my_rnd(), keeping its 32-bit unsigned arithmetic. */
+        /* MySQL's randominit() and my_rnd(), in 32-bit unsigned arithmetic */
         $max = 0x3FFFFFFF;
         $seed = (is_int($seed) ? $seed : (int)round((float)$seed)) & 0xFFFFFFFF;
         $seed1 = (($seed * 0x10001 + 55555555) & 0xFFFFFFFF) % $max;
