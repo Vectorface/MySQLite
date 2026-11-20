@@ -32,6 +32,9 @@ class MySQLiteTest extends TestCase
     /**
      * Assert that a function gives the expected result both when called directly and when called through SQLite.
      *
+     * Arguments are passed to SQLite as literals rather than bound parameters, which PDO would turn into strings, so
+     * the function receives the same types either way.
+     *
      * @param mixed $expected The expected result. Compared loosely through SQLite, as PHP 8.0 returns strings.
      * @param string $function The function name, e.g. 'concat'.
      * @param array $args The function arguments.
@@ -40,11 +43,14 @@ class MySQLiteTest extends TestCase
     {
         $this->assertSame($expected, MySQLite::{"mysql_$function"}(...$args), "Direct call to $function");
 
-        $stmt = $this->getPdoWithFunctions()->prepare(
-            sprintf("SELECT %s(%s)", $function, implode(", ", array_fill(0, count($args), "?")))
-        );
-        $stmt->execute($args);
-        $actual = $stmt->fetch(PDO::FETCH_COLUMN);
+        $pdo = $this->getPdoWithFunctions();
+        $literals = array_map(function ($arg) use ($pdo) {
+            if ($arg === null) {
+                return 'NULL';
+            }
+            return is_string($arg) ? $pdo->quote($arg) : var_export(is_bool($arg) ? (int)$arg : $arg, true);
+        }, $args);
+        $actual = $pdo->query(sprintf("SELECT %s(%s)", $function, implode(", ", $literals)))->fetch(PDO::FETCH_COLUMN);
         if ($expected === null) {
             $this->assertNull($actual, "SQL call to $function");
         } else {
