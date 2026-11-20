@@ -5,12 +5,12 @@ namespace Vectorface\Tests\MySQLite\Util;
 use Vectorface\MySQLite\MySQLite;
 
 /**
- * A subclass that adds its own functions, as the README suggests.
+ * A subclass adding its own functions.
  */
 class CustomMySQLite extends MySQLite
 {
     /**
-     * FOO - A custom scalar function.
+     * FOO - A scalar function.
      */
     public static function mysql_foo($value)
     {
@@ -26,7 +26,7 @@ class CustomMySQLite extends MySQLite
     }
 
     /**
-     * Add a custom aggregate to the inherited ones.
+     * Add an aggregate to the inherited ones.
      */
     protected static function getAggregateFunctions()
     {
@@ -34,7 +34,7 @@ class CustomMySQLite extends MySQLite
     }
 
     /**
-     * ROW_TOTAL step - Add one row's value to the total.
+     * ROW_TOTAL step
      */
     public static function rowTotalStep($total, $rowNumber, $value)
     {
@@ -42,7 +42,7 @@ class CustomMySQLite extends MySQLite
     }
 
     /**
-     * ROW_TOTAL - Return the total of all values in the group.
+     * ROW_TOTAL - Sum the group's values.
      */
     public static function rowTotalFinal($total, $rowNumber)
     {

@@ -36,18 +36,18 @@ trait DateTime
      * TO_DAYS - Return the date argument converted to days
      *
      * @param string $date A date to be converted to days.
-     * @return int|null The date converted to a number of days since year 0, or NULL if the date is NULL or invalid.
+     * @return int|null Days since year 0, or NULL if the date is NULL or invalid.
      */
     public static function mysql_to_days($date)
     {
         $parts = static::parseDateTime($date);
 
-        /* MySQL accepts year 0 here, and doesn't treat it as a leap year, just like year 1. */
+        /* Year 0 is valid, and not a leap year */
         if ($parts === null || !checkdate($parts['month'], $parts['day'], max($parts['year'], 1))) {
             return null;
         }
 
-        /* MySQL's own day number calculation (calc_daynr), so results match MySQL's exactly. */
+        /* MySQL's calc_daynr() */
         [$year, $month] = [$parts['year'], $parts['month']];
         $days = 365 * $year + 31 * ($month - 1) + $parts['day'];
         if ($month <= 2) {
@@ -62,8 +62,7 @@ trait DateTime
      * UNIX_TIMESTAMP - Return a UNIX timestamp
      *
      * @param string $date The date to be converted to a unix timestamp. Defaults to the current date/time.
-     * @return int|null The number of seconds since the unix epoch, 0 if the date is out of range (including zero
-     *     dates), or NULL if the date is NULL or invalid.
+     * @return int|null Seconds since the epoch, 0 if out of range, or NULL if the date is NULL or invalid.
      */
     public static function mysql_unix_timestamp($date = null)
     {
@@ -78,16 +77,14 @@ trait DateTime
             return null;
         }
 
-        /* Like MySQL, dates outside the TIMESTAMP range ('1970-01-01 00:00:01' to '3001-01-19 03:14:07' UTC) give 0. */
+        /* MySQL's TIMESTAMP range */
         return $timestamp < 1 || $timestamp > 32536782847 ? 0 : $timestamp;
     }
 
     /**
-     * YEAR - Return the year of a date
+     * YEAR - Return the year of a date, allowing zero parts like '2010-00-00'
      *
-     * Like MySQL, incomplete dates such as '2010-00-00' are accepted.
-     *
-     * @param string $date A date or datetime, e.g. '2010-11-30' or '2010-11-30 12:34:56'.
+     * @param string $date A date or datetime.
      * @return int|null The year, or NULL if the date is NULL or invalid.
      */
     public static function mysql_year($date)
@@ -97,13 +94,10 @@ trait DateTime
     }
 
     /**
-     * MONTH - Return the month of a date
+     * MONTH - Return the month of a date, allowing zero parts like '2010-00-00'
      *
-     * Like MySQL, incomplete dates such as '2010-00-00' are accepted.
-     *
-     * @param string $date A date or datetime, e.g. '2010-11-30' or '2010-11-30 12:34:56'.
-     * @return int|null The month, from 1 to 12, or 0 for dates with a zero month like '2008-00-00'. NULL if the
-     *     date is NULL or invalid.
+     * @param string $date A date or datetime.
+     * @return int|null The month (0 to 12), or NULL if the date is NULL or invalid.
      */
     public static function mysql_month($date)
     {
@@ -131,13 +125,11 @@ trait DateTime
     /**
      * TIMEDIFF - Return the difference between two times or two datetimes, as a time
      *
-     * Like MySQL, the result is clamped to the TIME range of -838:59:59 to 838:59:59. Fractional seconds are shown
-     * (to 6 digits) if either argument has them.
+     * Clamped to MySQL's TIME range, ±838:59:59. Shows microseconds if either argument has a fraction.
      *
-     * @param string $time1 A time (e.g. '-1 12:00:00.5') or datetime (e.g. '2010-11-30 12:00:00').
+     * @param string $time1 A time (e.g. '-1 12:00:00.5') or datetime.
      * @param string $time2 A value of the same kind as $time1.
-     * @return string|null $time1 - $time2 as 'HH:MM:SS[.ffffff]', or NULL if either argument is NULL or invalid, or
-     *     if one is a time and the other is a datetime.
+     * @return string|null $time1 - $time2, or NULL if either is NULL or invalid, or they're of different kinds.
      */
     public static function mysql_timediff($time1, $time2)
     {
@@ -169,14 +161,11 @@ trait DateTime
     }
 
     /**
-     * Parse a MySQL date or datetime string, like 'YYYY-MM-DD[ HH:MM:SS[.ffffff]]' or 'YYYYMMDD[HHMMSS[.ffffff]]'.
+     * Parse 'YYYY-MM-DD[ HH:MM:SS[.ffffff]]' (any punctuation; 'T' allowed) or 'YYYYMMDD[HHMMSS[.ffffff]]'.
      *
-     * Any punctuation may separate the date parts, and 'T' may separate the date and time, as MySQL allows.
-     * Date parts are not validated here, because some functions accept incomplete dates like '2010-00-00'.
+     * Date parts aren't validated, since some functions allow zero parts.
      *
-     * @param mixed $value The value to parse.
-     * @return array|null The year, month, day, micros (since midnight), and fraction (whether fractional seconds
-     *     were given), or null if the value is not a date or datetime.
+     * @return array|null [year, month, day, micros (since midnight), fraction (bool)], or null if not a date.
      */
     private static function parseDateTime($value)
     {
@@ -203,11 +192,9 @@ trait DateTime
     }
 
     /**
-     * Parse a MySQL time string, like '[-][D ]HH:MM[:SS[.ffffff]]'. Hours may exceed 23.
+     * Parse '[-][D ]HH:MM[:SS[.ffffff]]'. Hours may exceed 23.
      *
-     * @param mixed $value The value to parse.
-     * @return array|null The signed time in micros, and fraction (whether fractional seconds were given), or null
-     *     if the value is not a time.
+     * @return array|null [micros (signed), fraction (bool)], or null if not a time.
      */
     private static function parseTime($value)
     {
@@ -229,10 +216,7 @@ trait DateTime
     }
 
     /**
-     * Convert the digits after a decimal point to microseconds, ignoring digits beyond the sixth.
-     *
-     * @param string $digits The fractional digits.
-     * @return int The number of microseconds.
+     * Convert fractional-second digits to microseconds.
      */
     private static function parseFraction($digits)
     {
@@ -240,13 +224,7 @@ trait DateTime
     }
 
     /**
-     * Parse a date that may have zero parts, like '2010-00-00' or '0000-00-00', which some MySQL functions accept.
-     *
-     * Year 0 is allowed, and isn't a leap year. Parts that are given must still be valid, so '2010-02-30' and
-     * '2010-13-00' are rejected.
-     *
-     * @param mixed $value The value to parse.
-     * @return array|null Parts as from parseDateTime, or null if the value is not a valid date.
+     * Parse a date allowing zero parts, like '2010-00-00'. Other parts must be valid; year 0 isn't a leap year.
      */
     private static function parseIncompleteDate($value)
     {
@@ -261,10 +239,7 @@ trait DateTime
     }
 
     /**
-     * Check that parsed date parts form a real calendar date, with no zero parts.
-     *
-     * @param array|null $parts Parts from parseDateTime.
-     * @return bool True if the date is complete and valid.
+     * Whether parsed parts form a valid date with no zero parts.
      */
     private static function isCompleteDate($parts)
     {
@@ -272,10 +247,7 @@ trait DateTime
     }
 
     /**
-     * Get the UTC timestamp of midnight on a date, so date arithmetic is unaffected by the local time zone.
-     *
-     * @param array $parts Parts from parseDateTime.
-     * @return int Seconds since the Unix epoch.
+     * UTC timestamp of midnight on a date, so the local time zone doesn't matter.
      */
     private static function dateToTimestamp($parts)
     {

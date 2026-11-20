@@ -67,8 +67,7 @@ trait StringFunctions
      *
      * @param string $str The string.
      * @param int $len The number of characters to return.
-     * @return string|null The rightmost characters, an empty string if $len is not positive, or NULL if either
-     *     argument is NULL.
+     * @return string|null The rightmost characters, '' if $len <= 0, or NULL if either argument is NULL.
      */
     public static function mysql_right($str, $len)
     {

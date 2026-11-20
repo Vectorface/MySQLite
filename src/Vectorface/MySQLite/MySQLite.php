@@ -19,16 +19,12 @@ use Vectorface\MySQLite\MySQL\StringFunctions;
 /**
  * Provides some compatibility functions, allowing SQLite to mimic some MySQL functions.
  *
- * All public methods starting with a mysql_ will be registered by the addFunctions method.
- *
- * A method whose first parameter is typed with a class (e.g. UserLocks) receives per-connection state: createFunctions
- * creates one instance of that class per PDO connection and passes it ahead of the SQL arguments.
+ * createFunctions registers public static mysql_* methods. A method whose first parameter has a class type (e.g.
+ * UserLocks) gets one instance of it per connection.
  */
 class MySQLite
 {
-    /**
-     * Individual traits group functions into MySQL's documented function categories.
-     */
+    /* One trait per MySQL function category */
     use Aggregate;
     use Comparison;
     use DateTime;
@@ -56,9 +52,9 @@ class MySQLite
     /**
      * Add MySQLite compatibility functions to a PDO object.
      *
-     * @param PDO $pdo A PDO instance to which the MySQLite compatibility functions should be added.
-     * @param string[] $fnList A list of functions to create on the SQLite database, in any case. (Omit to create all.)
-     * @return PDO Returns the PDO instance passed in to the function.
+     * @param PDO $pdo An SQLite PDO instance.
+     * @param string[] $fnList Functions to create, in any case. (Omit to create all.)
+     * @return PDO The PDO instance passed in.
      */
     public static function createFunctions(PDO $pdo, ?array $fnList = null)
     {
@@ -66,10 +62,9 @@ class MySQLite
             throw new InvalidArgumentException('Expecting a PDO instance using the SQLite driver');
         }
 
-        /* SQL function names are case-insensitive, and ours are lower case. */
         $fnList = $fnList === null ? null : array_map('strtolower', $fnList);
 
-        $state = []; /* Per-connection state objects, shared by all functions registered on this PDO. */
+        $state = []; /* Per-connection state, keyed by class */
         foreach (static::getPublicMethodData() as $method => $paramCount) {
             static::registerMethod($pdo, $method, $paramCount, $fnList, $state);
         }
@@ -81,22 +76,20 @@ class MySQLite
     }
 
     /**
-     * Get information about functions that are meant to be exposed by this class.
-     *
-     * @return int[] An associative array composed of function names mapping to accepted parameter counts.
+     * @return int[] Method names mapped to SQL parameter counts.
      */
     protected static function getPublicMethodData()
     {
         $data = [];
 
-        /* Use the called class so subclasses can add functions. getMethods() ORs its filters, so check static here. */
+        /* static::class lets subclasses add functions. getMethods() ORs filters, so check isStatic() here. */
         $ref = new ReflectionClass(static::class);
         foreach ($ref->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
             if (!$method->isStatic() || strpos($method->name, 'mysql_') !== 0) {
                 continue;
             }
 
-            /* Per-connection state is supplied by createFunctions, not by SQL, so it isn't counted. */
+            /* State isn't an SQL argument */
             $stateParams = static::getStateClass($method) === null ? 0 : 1;
             $data[$method->name] = $method->getNumberOfRequiredParameters() - $stateParams;
         }
@@ -105,10 +98,10 @@ class MySQLite
     }
 
     /**
-     * Get the class of per-connection state a method takes as its first parameter, if any.
+     * Get the class of a method's per-connection state parameter, if any.
      *
-     * @param ReflectionMethod $method The method to inspect.
-     * @return string|null The class name, or null if the method takes no per-connection state.
+     * @param ReflectionMethod $method The method.
+     * @return string|null The class name, or null.
      */
     protected static function getStateClass(ReflectionMethod $method)
     {
@@ -118,20 +111,19 @@ class MySQLite
     }
 
     /**
-     * Register a method as an SQLite funtion
+     * Register a method as an SQLite function
      *
-     * @param PDO $pdo A PDO instance to which the MySQLite compatibility functions should be added.
-     * @param string $method The internal method name.
-     * @param int $paramCount The suggested parameter count.
-     * @param string[] $fnList A list of functions to create on the SQLite database, or empty for all.
-     * @param object[] &$state Per-connection state objects for this PDO, keyed by class name.
-     * @return bool Returns true if the method was registed. False otherwise.
+     * @param PDO $pdo An SQLite PDO instance.
+     * @param string $method The method name.
+     * @param int $paramCount The parameter count.
+     * @param string[] $fnList Functions to create, or empty for all.
+     * @param object[] &$state Per-connection state, keyed by class.
+     * @return bool Whether the method was registered.
      */
     protected static function registerMethod(PDO $pdo, $method, $paramCount, ?array $fnList = null, array &$state = [])
     {
-        $function = substr($method, 6); /* Strip 'mysql_' prefix to get the function name. */
+        $function = substr($method, 6); /* Strip 'mysql_' */
 
-        /* Skip functions not in the list. */
         if (!empty($fnList) && !in_array($function, $fnList)) {
             return false;
         }
@@ -143,7 +135,7 @@ class MySQLite
         $callback = [static::class, $method];
         $stateClass = static::getStateClass(new ReflectionMethod(static::class, $method));
         if ($stateClass !== null) {
-            /* The closure must not capture $pdo: the PDO holds the closure, and the state should die with the PDO. */
+            /* Don't capture $pdo: the PDO holds this closure, so that would be a cycle. */
             $instance = $state[$stateClass] ??= new $stateClass();
             $target = $callback;
             $callback = fn(...$args) => $target($instance, ...$args);
@@ -158,13 +150,13 @@ class MySQLite
     /**
      * Register an aggregate function with SQLite.
      *
-     * @param PDO $pdo A PDO instance to which the aggregate should be added.
+     * @param PDO $pdo An SQLite PDO instance.
      * @param string $function The SQL function name.
-     * @param string $step The method called for each row in a group.
-     * @param string $final The method called once per group to produce the result.
-     * @param int $paramCount The number of arguments the function takes.
-     * @param string[] $fnList A list of functions to create on the SQLite database, or empty for all.
-     * @return bool Returns true if the aggregate was registered. False otherwise.
+     * @param string $step The method called for each row.
+     * @param string $final The method called once per group for the result.
+     * @param int $paramCount The parameter count.
+     * @param string[] $fnList Functions to create, or empty for all.
+     * @return bool Whether the aggregate was registered.
      */
     protected static function registerAggregate(PDO $pdo, $function, $step, $final, $paramCount, ?array $fnList = null)
     {

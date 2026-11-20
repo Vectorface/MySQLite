@@ -6,11 +6,10 @@ use InvalidArgumentException;
 use RuntimeException;
 
 /**
- * MySQL user-level (named) locks, as used by GET_LOCK() and friends, for a single connection.
+ * One connection's MySQL user-level locks (GET_LOCK() etc.)
  *
- * Each lock is an advisory flock() on a file in a shared directory, so locks are visible to every process on the
- * machine, much like a MySQL server's locks are visible to all of its connections. Locks are released when the
- * owning PDO object is destroyed (via this object's destructor) or when the process exits.
+ * Locks are flock()s on files in a shared directory, so all processes on the machine see them. They're released when
+ * this object is destroyed or the process exits.
  */
 class UserLocks
 {
@@ -20,33 +19,19 @@ class UserLocks
     /** Time to sleep between attempts while waiting for a lock, in microseconds. */
     public const POLL_INTERVAL = 10000;
 
-    /**
-     * The directory that holds lock files, or null to use the system temp directory.
-     *
-     * @var string|null
-     */
+    /** @var string|null Lock file directory, or null for the system temp directory. */
     private static $directory = null;
 
-    /**
-     * Owners of every lock held in this process, mapping lock names to spl_object_id() of the holding instance.
-     *
-     * Whether two flock() handles in the same process conflict is platform-dependent, so this tracks it directly.
-     *
-     * @var int[]
-     */
+    /** @var int[] Holder object IDs by lock name, as in-process flock() is unreliable. */
     private static $processLocks = [];
 
-    /**
-     * Locks held by this connection, mapping lock names to their open lock file handle and acquisition count.
-     *
-     * @var array<string, array{handle: resource, count: int}>
-     */
+    /** @var array<string, array{handle: resource, count: int}> Locks held by this connection. */
     private $held = [];
 
     /**
-     * Set the directory that holds lock files. Connections share locks only if they use the same directory.
+     * Set the lock file directory. Only connections using the same directory share locks.
      *
-     * @param string|null $directory An existing, writable directory, or null for the system temp directory.
+     * @param string|null $directory A writable directory, or null for the system temp directory.
      */
     public static function setDirectory(?string $directory)
     {
@@ -54,11 +39,11 @@ class UserLocks
     }
 
     /**
-     * Try to acquire a lock, waiting up to $timeout seconds. Locks are re-entrant within a connection.
+     * Acquire a lock, re-entrantly.
      *
      * @param mixed $name The lock name.
-     * @param float $timeout Seconds to wait for the lock. Negative values wait forever.
-     * @return bool True if the lock was acquired, false if the attempt timed out.
+     * @param float $timeout Seconds to wait, or negative to wait forever.
+     * @return bool True if acquired, false if timed out.
      */
     public function acquire($name, float $timeout)
     {
@@ -84,10 +69,10 @@ class UserLocks
     }
 
     /**
-     * Release one acquisition of a lock held by this connection.
+     * Release one acquisition of a lock.
      *
      * @param mixed $name The lock name.
-     * @return bool|null True if released, false if another connection holds the lock, null if nobody holds it.
+     * @return bool|null True if released, false if held by another connection, null if not held.
      */
     public function release($name)
     {
@@ -103,9 +88,9 @@ class UserLocks
     }
 
     /**
-     * Release every lock held by this connection.
+     * Release all of this connection's locks.
      *
-     * @return int The number of locks released, counting each acquisition of a re-entrant lock.
+     * @return int The number released, counting re-entrant acquisitions.
      */
     public function releaseAll()
     {
@@ -118,10 +103,10 @@ class UserLocks
     }
 
     /**
-     * Check whether a lock is free, meaning no connection holds it.
+     * Check whether no connection holds a lock.
      *
      * @param mixed $name The lock name.
-     * @return bool True if the lock is free.
+     * @return bool
      */
     public function isFree($name)
     {
@@ -140,7 +125,7 @@ class UserLocks
     }
 
     /**
-     * Release all locks when the connection goes away, as MySQL does when a session ends.
+     * Release all locks when the connection goes away, like MySQL.
      */
     public function __destruct()
     {
@@ -148,7 +133,7 @@ class UserLocks
     }
 
     /**
-     * Fully release a lock held by this connection.
+     * Fully release a held lock.
      *
      * @param string $name The normalized lock name.
      */
@@ -160,7 +145,7 @@ class UserLocks
     }
 
     /**
-     * Validate a lock name and normalize it. MySQL lock names are case-insensitive.
+     * Validate a lock name and lowercase it, as MySQL lock names are case-insensitive.
      *
      * @param mixed $name The lock name.
      * @return string The normalized lock name.
@@ -180,10 +165,10 @@ class UserLocks
     }
 
     /**
-     * Open the file backing a lock, creating it if needed. Lock files are left in place for reuse.
+     * Open a lock's file, creating it if needed. Lock files are never deleted.
      *
      * @param string $name The normalized lock name.
-     * @return resource The open file handle.
+     * @return resource
      */
     protected static function openLockFile($name)
     {
