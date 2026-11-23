@@ -18,6 +18,14 @@ class CustomMySQLite extends MySQLite
     }
 
     /**
+     * OPT_ARGS - Takes an optional second argument.
+     */
+    public static function mysql_opt_args($a, $b = 'd')
+    {
+        return "$a-$b";
+    }
+
+    /**
      * Not static, so not registered.
      */
     public function mysql_not_static()
