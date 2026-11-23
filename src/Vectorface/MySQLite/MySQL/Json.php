@@ -100,7 +100,7 @@ trait Json
     /**
      * Find the value at a path.
      *
-     * @return array{bool, mixed, bool} Whether it was found, the value, and whether the document was valid JSON.
+     * @return array [found, value, valid]: whether it was found, the value, and whether the document was valid JSON.
      */
     private static function jsonFind($doc, $path): array
     {
@@ -124,7 +124,7 @@ trait Json
     /**
      * Decode JSON, keeping objects as stdClass so {} and [] stay distinct, and string values as written (escaped).
      *
-     * @return array{bool, mixed} Whether it was valid JSON, and the value.
+     * @return array [valid, value]: whether it was valid JSON, and the value.
      */
     private static function jsonDecode($json): array
     {
@@ -206,38 +206,54 @@ trait Json
     private static function jsonContains($target, $candidate): bool
     {
         if (is_array($target)) {
-            if (is_array($candidate)) {
-                foreach ($candidate as $item) {
-                    if (!static::jsonContains($target, $item)) {
-                        return false;
-                    }
-                }
-                return true;
-            }
-            foreach ($target as $item) {
-                if (static::jsonContains($item, $candidate)) {
-                    return true;
-                }
-            }
-            return false;
+            return static::jsonArrayContains($target, $candidate);
         }
-
         if ($target instanceof stdClass) {
-            if (!$candidate instanceof stdClass) {
-                return false;
-            }
-            foreach (get_object_vars($candidate) as $key => $value) {
-                if (!property_exists($target, $key) || !static::jsonContains($target->$key, $value)) {
+            return $candidate instanceof stdClass && static::jsonObjectContains($target, $candidate);
+        }
+        return static::jsonScalarEquals($target, $candidate);
+    }
+
+    /**
+     * An array contains every element of an array candidate, or an element containing any other candidate.
+     */
+    private static function jsonArrayContains(array $target, $candidate): bool
+    {
+        if (is_array($candidate)) {
+            foreach ($candidate as $item) {
+                if (!static::jsonArrayContains($target, $item)) {
                     return false;
                 }
             }
             return true;
         }
-
-        $isNumber = fn($v) => is_int($v) || is_float($v);
-        if ($isNumber($target) && $isNumber($candidate)) {
-            return $target == $candidate;
+        foreach ($target as $item) {
+            if (static::jsonContains($item, $candidate)) {
+                return true;
+            }
         }
-        return $target === $candidate;
+        return false;
+    }
+
+    /**
+     * An object contains each of the candidate's keys, with a value containing the candidate's.
+     */
+    private static function jsonObjectContains(stdClass $target, stdClass $candidate): bool
+    {
+        foreach (get_object_vars($candidate) as $key => $value) {
+            if (!property_exists($target, $key) || !static::jsonContains($target->$key, $value)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Numbers are equal by value; other scalars by type and value.
+     */
+    private static function jsonScalarEquals($target, $candidate): bool
+    {
+        $isNumber = fn($v) => is_int($v) || is_float($v);
+        return $isNumber($target) && $isNumber($candidate) ? $target == $candidate : $target === $candidate;
     }
 }
