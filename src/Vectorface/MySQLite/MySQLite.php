@@ -12,6 +12,7 @@ use Vectorface\MySQLite\MySQL\Aggregate;
 use Vectorface\MySQLite\MySQL\Comparison;
 use Vectorface\MySQLite\MySQL\DateTime;
 use Vectorface\MySQLite\MySQL\Flow;
+use Vectorface\MySQLite\MySQL\Json;
 use Vectorface\MySQLite\MySQL\Locking;
 use Vectorface\MySQLite\MySQL\Numeric;
 use Vectorface\MySQLite\MySQL\StringFunctions;
@@ -29,6 +30,7 @@ class MySQLite
     use Comparison;
     use DateTime;
     use Flow;
+    use Json;
     use Locking;
     use Numeric;
     use StringFunctions;

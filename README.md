@@ -40,6 +40,8 @@ Limitations
 
 MySQLite only provides a limited subset of MySQL functions. There are a lot of MySQL functions, so there's both a developer cost and performance penalty to adding them all.
 
+JSON functions (`JSON_VALUE`, `JSON_CONTAINS`, `JSON_EXISTS`, `JSON_LENGTH`) follow MariaDB where it differs from MySQL, and support simple paths only: `$`, `.key`, `."quoted key"` and `[n]`.
+
 If you want to add more, it's easy. You only need to add a public static method called mysql_[function name] into one of the traits in src/Vectorface/MySQLite/MySQL.
 
 For example, to create a function ```FOO()``` with silly behavior in StringFunctions.php:

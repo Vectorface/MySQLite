@@ -166,6 +166,7 @@ class MySQLiteTest extends TestCase
         $functions = [
             'bit_or', 'least', 'if', 'sqrt', 'rand', 'now', 'curdate', 'to_days', 'unix_timestamp', 'year', 'month',
             'datediff', 'timediff', 'concat', 'concat_ws', 'format', 'soundex', 'right',
+            'json_value', 'json_contains', 'json_exists', 'json_length',
         ];
         return array_combine($functions, array_map(function ($function) {
             return [$function];
@@ -528,6 +529,116 @@ class MySQLiteTest extends TestCase
             'RIGHT of a number' => ['23', 'right', [123, 2]],
             'RIGHT of NULL string' => [null, 'right', [null, 1]],
             'RIGHT of NULL length' => [null, 'right', ['abc', null]],
+        ];
+    }
+
+    /*
+     * JSON functions
+     */
+
+    /**
+     * @dataProvider jsonProvider
+     */
+    public function testJsonFunctions($expected, string $function, array $args)
+    {
+        $this->assertFunctionResult($expected, $function, $args);
+    }
+
+    public static function jsonProvider(): array
+    {
+        return [
+            /* JSON_VALUE, as in MariaDB */
+            'JSON_VALUE of a string' => ['x', 'json_value', ['{"a":"x"}', '$.a']],
+            'JSON_VALUE of true' => ['1', 'json_value', ['{"a":true}', '$.a']],
+            'JSON_VALUE of false' => ['0', 'json_value', ['{"a":false}', '$.a']],
+            'JSON_VALUE of null' => [null, 'json_value', ['{"a":null}', '$.a']],
+            'JSON_VALUE of a missing key' => [null, 'json_value', ['{"b":1}', '$.a']],
+            'JSON_VALUE of an array' => [null, 'json_value', ['{"a":[1,2]}', '$.a']],
+            'JSON_VALUE of a quoted key' => ['7', 'json_value', ['{"a b":7}', '$."a b"']],
+            'JSON_VALUE of an index' => ['20', 'json_value', ['[10,20]', '$[1]']],
+            'JSON_VALUE of a float' => ['1.5', 'json_value', ['{"a":1.5}', '$.a']],
+            'JSON_VALUE of a nested key' => ['y', 'json_value', ['{"a":{"b":"y"}}', '$.a.b']],
+            'JSON_VALUE of a root object' => [null, 'json_value', ['{"a":1}', '$']],
+            'JSON_VALUE of a root scalar' => ['s', 'json_value', ['"s"', '$']],
+            'JSON_VALUE unescapes' => ['a/b', 'json_value', ['["a\/b"]', '$[0]']],
+            'JSON_VALUE of an escaped key' => ['1', 'json_value', ['{"a\/b":1}', '$."a/b"']],
+            'JSON_VALUE of invalid JSON' => [null, 'json_value', ['not json', '$.a']],
+            'JSON_VALUE of NULL' => [null, 'json_value', [null, '$.a']],
+
+            /* JSON_CONTAINS, as in MariaDB */
+            'JSON_CONTAINS an integer' => [1, 'json_contains', ['{"l":[5,6]}', '5', '$.l']],
+            'JSON_CONTAINS is strict about strings' => [0, 'json_contains', ['{"l":[5,6]}', '"5"', '$.l']],
+            'JSON_CONTAINS a scalar at the path' => [1, 'json_contains', ['{"l":5}', '5', '$.l']],
+            'JSON_CONTAINS a missing path' => [0, 'json_contains', ['{"l":[5]}', '5', '$.m']],
+            'JSON_CONTAINS compares numbers by value' => [1, 'json_contains', ['[1.0]', '1']],
+            'JSON_CONTAINS does not equate true and 1' => [0, 'json_contains', ['[true]', '1']],
+            'JSON_CONTAINS an array subset' => [1, 'json_contains', ['[1,2,3]', '[1,3]']],
+            'JSON_CONTAINS a non-subset' => [0, 'json_contains', ['[1,2,3]', '[1,4]']],
+            'JSON_CONTAINS within a nested array' => [1, 'json_contains', ['[[1,2]]', '[1]']],
+            'JSON_CONTAINS an object subset' => [1, 'json_contains', ['{"a":1,"b":2}', '{"a":1}']],
+            'JSON_CONTAINS a scalar in an object' => [0, 'json_contains', ['{"a":1}', '1']],
+            'JSON_CONTAINS a root scalar' => [1, 'json_contains', ['"x"', '"x"']],
+            'JSON_CONTAINS an empty array' => [1, 'json_contains', ['[1,2]', '[]']],
+            'JSON_CONTAINS null' => [1, 'json_contains', ['[null]', 'null']],
+            'JSON_CONTAINS at the root path' => [1, 'json_contains', ['[1]', '1', '$']],
+            'JSON_CONTAINS an object in an array' => [1, 'json_contains', ['{"l":[{"a":1,"b":2}]}', '{"a":1}', '$.l']],
+            'JSON_CONTAINS compares strings as escaped' => [0, 'json_contains', ['["a\/b"]', '"a/b"']],
+            'JSON_CONTAINS an equally escaped string' => [1, 'json_contains', ['["a\/b"]', '"a\/b"']],
+            'JSON_CONTAINS an escaped candidate in plain text' => [0, 'json_contains', ['["a/b"]', '"a\/b"']],
+            'JSON_CONTAINS a raw character for its escape' => [0, 'json_contains', ['{"u":"\u00e9"}', '"é"', '$.u']],
+            'JSON_CONTAINS an equal escape' => [1, 'json_contains', ['{"u":"\u00e9"}', '"\u00e9"', '$.u']],
+            'JSON_CONTAINS escapes are case-sensitive' => [0, 'json_contains', ['{"u":"\u00e9"}', '"\u00E9"', '$.u']],
+            'JSON_CONTAINS matches unescaped keys' => [1, 'json_contains', ['{"k":{"a\/b":1}}', '{"a/b":1}', '$.k']],
+            'JSON_CONTAINS in invalid JSON' => [null, 'json_contains', ['not json', '1']],
+            'JSON_CONTAINS in NULL' => [null, 'json_contains', [null, '5', '$.l']],
+
+            /* JSON_EXISTS, as in MariaDB */
+            'JSON_EXISTS of a null value' => [1, 'json_exists', ['{"a":null}', '$.a']],
+            'JSON_EXISTS of a missing key' => [0, 'json_exists', ['{"a":1}', '$.b']],
+            'JSON_EXISTS of an index' => [1, 'json_exists', ['[1]', '$[0]']],
+            'JSON_EXISTS of a missing index' => [0, 'json_exists', ['[1]', '$[1]']],
+            'JSON_EXISTS in NULL' => [null, 'json_exists', [null, '$.a']],
+            'JSON_EXISTS in invalid JSON' => [null, 'json_exists', ['not json', '$.a']],
+
+            /* JSON_LENGTH, as in MariaDB */
+            'JSON_LENGTH of an array' => [3, 'json_length', ['{"l":[1,2,3]}', '$.l']],
+            'JSON_LENGTH of a scalar' => [1, 'json_length', ['{"l":"x"}', '$.l']],
+            'JSON_LENGTH of a missing path' => [null, 'json_length', ['{"l":1}', '$.m']],
+            'JSON_LENGTH of an empty object' => [0, 'json_length', ['{}']],
+            'JSON_LENGTH of an object' => [2, 'json_length', ['{"a":1,"b":2}']],
+            'JSON_LENGTH of an empty array' => [0, 'json_length', ['[]']],
+            'JSON_LENGTH of a root scalar' => [1, 'json_length', ['"x"']],
+            'JSON_LENGTH of NULL' => [null, 'json_length', [null]],
+        ];
+    }
+
+    /**
+     * JSON_VALUE returns text, as in MariaDB, so it equals a bound string (PDO binds strings).
+     */
+    public function testJsonValueEqualsABoundString()
+    {
+        $stmt = $this->getPdoWithFunctions()->prepare("SELECT JSON_VALUE('{\"a\":12}', '$.a') = ?");
+        $stmt->execute(['12']);
+        $this->assertEquals(1, $stmt->fetch(PDO::FETCH_COLUMN));
+    }
+
+    /**
+     * @dataProvider unsupportedJsonPathProvider
+     */
+    public function testJsonUnsupportedPathThrows(string $path)
+    {
+        $this->expectException(InvalidArgumentException::class);
+        MySQLite::mysql_json_value('{"a":1}', $path);
+    }
+
+    public static function unsupportedJsonPathProvider(): array
+    {
+        return [
+            'wildcard key' => ['$.*'],
+            'wildcard index' => ['$[*]'],
+            'recursive descent' => ['$**.a'],
+            'last index' => ['$[last]'],
+            'no root' => ['a.b'],
         ];
     }
 }
