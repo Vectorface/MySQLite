@@ -91,7 +91,10 @@ class MySQLite
 
             /* State isn't an SQL argument */
             $stateParams = static::getStateClass($method) === null ? 0 : 1;
-            $data[$method->name] = $method->getNumberOfRequiredParameters() - $stateParams;
+            /* Optional arguments make the SQL function variadic (-1) */
+            $data[$method->name] = $method->getNumberOfParameters() > $method->getNumberOfRequiredParameters()
+                ? -1
+                : $method->getNumberOfRequiredParameters() - $stateParams;
         }
 
         return $data;

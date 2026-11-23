@@ -150,6 +150,17 @@ class MySQLiteTest extends TestCase
         $pdo->query("SELECT NOT_STATIC()");
     }
 
+    /**
+     * A function with optional arguments can be called with or without them.
+     */
+    public function testOptionalArgumentsAreVariadic()
+    {
+        $pdo = CustomMySQLite::createFunctions($this->getPdo());
+
+        $this->assertEquals('x-d', $pdo->query("SELECT OPT_ARGS('x')")->fetch(PDO::FETCH_COLUMN));
+        $this->assertEquals('x-y', $pdo->query("SELECT OPT_ARGS('x', 'y')")->fetch(PDO::FETCH_COLUMN));
+    }
+
     public static function functionNameProvider(): array
     {
         $functions = [
